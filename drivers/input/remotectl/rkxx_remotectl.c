@@ -95,7 +95,24 @@ struct rkxx_remotectl_drvdata {
     //184      //rorate_right
     //185      //zoom out
     //186      //zoom in
-    
+
+static struct rkxx_remote_key_table remote_key_table_radxa[] = {
+                {0x2, KEY_VOLUMEUP},
+                {0xc0, KEY_VOLUMEDOWN},
+                {0x52, KEY_MENU},
+                {0xa2, KEY_REPLY},
+                {0xe0, KEY_BACK},
+                {0x62, KEY_UP},
+                {0x22, KEY_DOWN},
+                {0x82, KEY_LEFT},
+                {0x92, KEY_RIGHT},
+                {0x42, KEY_HOME},
+                {0xd2, KEY_MUTE}, 
+                {0xc2, KEY_POWER},
+                {0xe2, 388},//mouse switch 
+ };
+ 
+ 
 static struct rkxx_remote_key_table remote_key_table_meiyu_202[] = {
     {0xB0, KEY_REPLY},//ok = DPAD CENTER
     {0xA2, KEY_BACK}, 
@@ -195,6 +212,11 @@ extern suspend_state_t get_suspend_state(void);
 
 static struct rkxx_remotectl_button remotectl_button[] = 
 {
+	{  
+       .usercode = 0xff, 
+       .nbuttons =  13, 
+       .key_table = &remote_key_table_radxa[0],
+    },
     {  
        .usercode = 0xff,
        .nbuttons =  22, 
@@ -527,7 +549,6 @@ static int __devinit remotectl_probe(struct platform_device *pdev)
     int irq;
     int error = 0;
 
-    printk("++++++++remotectl_probe\n");
 
     if(!pdata) 
         return -EINVAL;
