@@ -213,6 +213,9 @@ config BOX_FB_1080P
 	For itv box, default framebuffer size and timing as 1920x1080p-60 if you say yes."
 #$_rbox_$_modify_$_end
 
+config LCD_RADXA_LVDS_1024_600
+	bool "1024x600 LVDS display provided by radxa"
+
 endchoice
 
 

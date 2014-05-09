@@ -73,6 +73,7 @@ obj-$(CONFIG_LCD_KD101N4_RK616_1280X800)  += lcd_rk61x_1280x800.o
 obj-$(CONFIG_BOX_FB_480P) += lcd_480p.o
 obj-$(CONFIG_BOX_FB_720P) += lcd_720p.o
 obj-$(CONFIG_BOX_FB_1080P) += lcd_1080p.o
+obj-$(CONFIG_LCD_RADXA_LVDS_1024_600) += lcd_radxa_lvds_1024x600.o
 #$_rbox_$_modify_$_end
 
 quiet_cmd_gen = GEN     $@
