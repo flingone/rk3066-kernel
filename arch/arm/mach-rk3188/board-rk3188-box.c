@@ -135,7 +135,7 @@ static struct spi_board_info board_spi_devices[] = {
 #ifdef CONFIG_BACKLIGHT_RK29_BL
 #define PWM_ID            3
 #define PWM_MODE	  PWM3
-#define PWM_EFFECT_VALUE  1
+#define PWM_EFFECT_VALUE  0
 
 #define LCD_DISP_ON_PIN
 
@@ -207,8 +207,8 @@ static int rk29_backlight_pwm_resume(void)
 }
 
 static struct rk29_bl_info rk29_bl_info = {
-        .min_brightness = 65,
-        .max_brightness = 150,
+        .min_brightness = 120,
+        .max_brightness = 255,
         .brightness_mode =BRIGHTNESS_MODE_CONIC,
 	.pre_div = 40 * 1000,  // pwm output clk: 40k;
 	.pwm_id = PWM_ID,
@@ -392,7 +392,7 @@ static struct sensor_platform_data cm3217_info = {
 
 #ifdef CONFIG_FB_ROCKCHIP
 
-#define LCD_CS_PIN         INVALID_GPIO
+#define LCD_CS_PIN         RK30_PIN2_PD6
 #define LCD_CS_VALUE       GPIO_HIGH
 
 #define LCD_EN_PIN         RK30_PIN0_PB0
@@ -460,7 +460,7 @@ static int rk_fb_io_enable(void)
 
 #if defined(CONFIG_LCDC0_RK3188)
 struct rk29fb_info lcdc0_screen_info = {
-	.prop           = EXTEND,       //extend display device
+		.prop           = PRMRY,       //extend display device
        .lcd_info  = NULL,
        .set_screen_info = set_lcd_info,
 
@@ -1560,7 +1560,7 @@ static struct rk616_platform_data rk616_pdata = {
 	.scl_rate   = RK616_SCL_RATE,
 	.lcd0_func = INPUT,             //port lcd0 as input
 	.lcd1_func = UNUSED,             //port lcd1 as input
-//	.lvds_ch_nr = 1,				//the number of used lvds channel  
+	.lvds_ch_nr = 1,				//the number of used lvds channel
 	.hdmi_irq = INVALID_GPIO,
 	.spk_ctl_gpio = INVALID_GPIO,
 	.hp_ctl_gpio = INVALID_GPIO,

@@ -503,9 +503,9 @@ static int rk3188_lcdc_open(struct rk_lcdc_device_driver *dev_drv,int layer_id,b
 
 	if((open) && (!lcdc_dev->atv_layer_cnt)) //enable clk,when first layer open
 	{
-//		rk3188_lcdc_clk_enable(lcdc_dev);
-//		rk3188_lcdc_reg_resume(lcdc_dev); //resume reg
-//		rk3188_load_screen(dev_drv,1);
+		rk3188_lcdc_clk_enable(lcdc_dev);
+		rk3188_lcdc_reg_resume(lcdc_dev); //resume reg
+		rk3188_load_screen(dev_drv,1);
 		spin_lock(&lcdc_dev->reg_lock);
 		if(dev_drv->cur_screen->dsp_lut)			//resume dsp lut
 		{
@@ -716,7 +716,7 @@ static int rk3188_load_screen(struct rk_lcdc_device_driver *dev_drv, bool initsc
 	{
 		if(screen->type==SCREEN_MCU)
 		{
-	    	printk("MUC¡¡screen not supported now!\n");
+			printk("MCU screen not supported now!\n");
 			return -EINVAL;
 		}
 

@@ -24,7 +24,7 @@ static int set_scaler_info(struct rk29fb_screen *screen, u8 hdmi_resolution)
 	
 	switch(hdmi_resolution)
 	{
-	case HDMI_1920x1080p_60Hz:
+	case HDMI_1920x1080p_60HZ:
                 /* Scaler Timing    */
 	#if defined(CONFIG_RK610_LVDS)
 		screen->hdmi_resolution = hdmi_resolution;
@@ -50,7 +50,7 @@ static int set_scaler_info(struct rk29fb_screen *screen, u8 hdmi_resolution)
 		screen->vif_hst     = S_VIF_HST;
 	#endif
 		break;
-	case HDMI_1920x1080p_50Hz:
+	case HDMI_1920x1080p_50HZ:
                 /* Scaler Timing    */
 	#if defined(CONFIG_RK610_LVDS)
 		screen->hdmi_resolution = hdmi_resolution;
@@ -75,7 +75,7 @@ static int set_scaler_info(struct rk29fb_screen *screen, u8 hdmi_resolution)
 		screen->vif_hst     = S1_VIF_HST;
 	#endif
 		break;
-	case HDMI_1280x720p_60Hz:
+	case HDMI_1280x720p_60HZ:
                 /* Scaler Timing    */
 	#if defined(CONFIG_RK610_LVDS)
 		screen->hdmi_resolution = hdmi_resolution;
@@ -100,7 +100,7 @@ static int set_scaler_info(struct rk29fb_screen *screen, u8 hdmi_resolution)
 		screen->vif_hst     = S2_VIF_HST;
 	#endif
 		break;
-	case HDMI_1280x720p_50Hz:
+	case HDMI_1280x720p_50HZ:
                 /* Scaler Timing    */
 	#if defined(CONFIG_RK610_LVDS)
 		screen->hdmi_resolution = hdmi_resolution;
@@ -125,8 +125,8 @@ static int set_scaler_info(struct rk29fb_screen *screen, u8 hdmi_resolution)
 		screen->vif_hst     = S3_VIF_HST;
 	#endif
 		break;
-	case HDMI_720x576p_50Hz_4_3:
-	case HDMI_720x576p_50Hz_16_9:
+	case HDMI_720x576p_50HZ_4_3:
+	case HDMI_720x576p_50HZ_16_9:
                 /* Scaler Timing    */
 	#if defined(CONFIG_RK610_LVDS)
 		screen->hdmi_resolution = hdmi_resolution;
@@ -152,8 +152,8 @@ static int set_scaler_info(struct rk29fb_screen *screen, u8 hdmi_resolution)
 	#endif
 		break;
 		
-	case HDMI_720x480p_60Hz_16_9:
-	case HDMI_720x480p_60Hz_4_3:
+	case HDMI_720x480p_60HZ_16_9:
+	case HDMI_720x480p_60HZ_4_3:
                 /* Scaler Timing    */
 	#if defined(CONFIG_RK610_LVDS)
 		screen->hdmi_resolution = hdmi_resolution;
@@ -235,14 +235,12 @@ void set_lcd_info(struct rk29fb_screen *screen, struct rk29lcd_info *lcd_info )
 	screen->face = OUT_FACE;
 	screen->lvds_format = LVDS_FORMAT;  //lvds data format
 
-	
 	screen->x_res = H_VD;		//screen resolution
 	screen->y_res = V_VD;
 
 	screen->width = LCD_WIDTH;
 	screen->height = LCD_HEIGHT;
 
-    
 	screen->lcdc_aclk = LCDC_ACLK; // Timing 
 	screen->pixclock = DCLK;
 	screen->left_margin = H_BP;
@@ -252,14 +250,12 @@ void set_lcd_info(struct rk29fb_screen *screen, struct rk29lcd_info *lcd_info )
 	screen->lower_margin = V_FP;
 	screen->vsync_len = V_PW;
 
-	
 	screen->pin_hsync = HSYNC_POL; //Pin polarity 
 	screen->pin_vsync = VSYNC_POL;
 	screen->pin_den = DEN_POL;
 	screen->pin_dclk = DCLK_POL;
-
-	
 	screen->swap_rb = SWAP_RB; // Swap rule 
+
 	screen->swap_rg = SWAP_RG;
 	screen->swap_gb = SWAP_GB;
 	screen->swap_delta = 0;
