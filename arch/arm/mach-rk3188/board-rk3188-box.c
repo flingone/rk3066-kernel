@@ -87,6 +87,10 @@
 #include "./board-rk31-vmac.c"
 #endif
 
+/* led1: green, led2: blue */
+#define RADXA_STATUS_LED1 RK30_PIN0_PB4
+#define RADXA_STATUS_LED2 RK30_PIN0_PB6
+
 static struct rk29_keys_button key_button[] = {
 	{
 		.desc	= "play",
@@ -2296,10 +2300,6 @@ static void rk30_pm_power_off(void)
 	gpio_direction_output(POWER_ON_PIN, GPIO_LOW);
 	while (1);
 }
-
-/* led1: green, led2: blue */
-#define RADXA_STATUS_LED1 RK30_PIN0_PB4
-#define RADXA_STATUS_LED2 RK30_PIN0_PB6
 
 static void __init machine_rk30_board_init(void)
 {
