@@ -45,6 +45,12 @@ static int rk30_rmii_io_init(void)
 	gpio_direction_output(PHY_PWR_EN_GPIO, GPIO_LOW);
 	gpio_set_value(PHY_PWR_EN_GPIO, GPIO_LOW);
 #endif
+	err = gpio_request(RK30_PIN0_PC0, "rmii_rst");
+	if (err) {
+		return -1;
+	}
+
+	gpio_direction_input(RK30_PIN0_PC0);
 	return 0;
 }
 
