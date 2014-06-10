@@ -1,0 +1,9 @@
+KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL
+TARGET_PREBUILT_KERNEL := $(KERNEL_OUT)/arch/arm/boot/Image
+
+$(TARGET_PREBUILT_KERNEL) : $(KERNEL_OUT)
+	$(MAKE) -C kernel ARM=arm CROSS_COMPILE=arm-eabi- O=../$(KERNEL_OUT) $(KERNEL_DEFCONFIG)
+	$(MAKE) -C kernel ARM=arm CROSS_COMPILE=arm-eabi- O=../$(KERNEL_OUT) kernel.img
+
+$(KERNEL_OUT) :
+	mkdir -p $(KERNEL_OUT)
