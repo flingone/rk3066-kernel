@@ -105,7 +105,7 @@ static int rk_fb_open(struct fb_info *info,int user)
 
 static int rk_fb_close(struct fb_info *info,int user)
 {
-//	#ifdef CONFIG_LCDC_OVERLAY_ENABLE
+	#ifdef CONFIG_LCDC_OVERLAY_ENABLE
 	struct rk_lcdc_device_driver * dev_drv = (struct rk_lcdc_device_driver * )info->par;
 	int layer_id;
 //	CHK_SUSPEND(dev_drv);
@@ -120,7 +120,7 @@ static int rk_fb_close(struct fb_info *info,int user)
     	if(dev_drv->enable)
 			dev_drv->open(dev_drv, layer_id, 0);
 	}
-//	#endif
+	#endif
     	return 0;
 }
 static void fb_copy_by_ipp(struct fb_info *dst_info, struct fb_info *src_info,int offset)
