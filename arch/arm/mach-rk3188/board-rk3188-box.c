@@ -471,7 +471,11 @@ static int rk_fb_io_enable(void)
 
 #if defined(CONFIG_LCDC0_RK3188)
 struct rk29fb_info lcdc0_screen_info = {
-		.prop           = EXTEND,       //extend display device
+#if defined(CONFIG_RK616_LVDS)
+       .prop           = PRMRY,       //primary display device
+#else
+       .prop           = EXTEND,      //extend display device
+#endif
        .lcd_info  = NULL,
        .set_screen_info = set_lcd_info,
 
