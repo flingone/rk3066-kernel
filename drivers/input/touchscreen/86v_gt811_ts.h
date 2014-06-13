@@ -31,13 +31,13 @@
 #define GUITAR_UPDATE_STATE 0x02
 
 //define resolution of the touchscreen
-#define TOUCH_MAX_HEIGHT 	800			
-#define TOUCH_MAX_WIDTH		480
+#define TOUCH_MAX_HEIGHT 	1024			
+#define TOUCH_MAX_WIDTH         600	
 //#define STOP_IRQ_TYPE                     // if define then   no stop irq in irq_handle   kuuga add 1202S
 #define REFRESH 0     //0~0x64   Scan rate = 10000/(100+REFRESH)//define resolution of the LCD
 
-#define SHUTDOWN_PORT 	    RK30_PIN0_PB6// RK2928_PIN0_PD3 
-#define INT_PORT 	        iomux_mode_to_gpio(SPI0_CS1)// RK30_PIN1_PB7//RK2928_PIN1_PB0  
+#define SHUTDOWN_PORT 	    RK30_PIN0_PA7 // RK2928_PIN0_PD3 
+#define INT_PORT 	        RK30_PIN0_PA6 //iomux_mode_to_gpio(SPI0_CS1)// RK30_PIN1_PB7//RK2928_PIN1_PB0  
 
 
 #ifdef INT_PORT

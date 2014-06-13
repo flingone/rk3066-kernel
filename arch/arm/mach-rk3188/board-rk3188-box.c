@@ -106,6 +106,86 @@ struct rk29_keys_platform_data rk29_keys_pdata = {
 	.chn	= 1,  //chn: 0-7, if do not use ADC,set 'chn' -1
 };
 
+#if defined (CONFIG_TOUCHSCREEN_86V_GT811_IIC)
+#define TOUCH_RESET_PIN  RK30_PIN0_PA7
+#define TOUCH_INT_PIN    RK30_PIN0_PA6
+int gt811_init_platform_hw(void)
+{
+    if(gpio_request(TOUCH_RESET_PIN,NULL) != 0){
+      gpio_free(TOUCH_RESET_PIN);
+      printk("gt811_init_platform_hw gpio_request error\n");
+      return -EIO;
+    }
+
+    if(gpio_request(TOUCH_INT_PIN,NULL) != 0){
+      gpio_free(TOUCH_INT_PIN);
+      printk("gt811_init_platform_hw gpio_request error\n");
+      return -EIO;
+    }
+    //gpio_pull_updown(TOUCH_INT_PIN, 1);
+    gpio_direction_output(TOUCH_RESET_PIN, 0);
+    msleep(500);
+    gpio_set_value(TOUCH_RESET_PIN,GPIO_LOW);
+    msleep(500);
+    gpio_set_value(TOUCH_RESET_PIN,GPIO_HIGH);
+       mdelay(100);
+
+    return 0;
+}
+
+
+static struct goodix_platform_data gt811_info = {
+  .model= 811,
+  .init_platform_hw= gt811_init_platform_hw,
+
+};
+#endif
+
+#if defined(CONFIG_TOUCHSCREEN_GT8XX)
+#define TOUCH_RESET_PIN RK30_PIN0_PA7
+#define TOUCH_PWR_PIN   INVALID_GPIO
+
+static int goodix_init_platform_hw(void)
+{
+	int ret;
+
+	if (TOUCH_PWR_PIN != INVALID_GPIO) {
+		ret = gpio_request(TOUCH_PWR_PIN, "goodix power pin");
+		if (ret != 0) {
+			gpio_free(TOUCH_PWR_PIN);
+			printk("goodix power error\n");
+			return -EIO;
+		}
+		gpio_direction_output(TOUCH_PWR_PIN, 0);
+		gpio_set_value(TOUCH_PWR_PIN, GPIO_LOW);
+		msleep(100);
+	}
+
+	if (TOUCH_RESET_PIN != INVALID_GPIO) {
+		ret = gpio_request(TOUCH_RESET_PIN, "goodix reset pin");
+		if (ret != 0) {
+			gpio_free(TOUCH_RESET_PIN);
+			printk("goodix gpio_request error\n");
+			return -EIO;
+		}
+		gpio_direction_output(TOUCH_RESET_PIN, 1);
+                msleep(100);
+		gpio_set_value(TOUCH_RESET_PIN, GPIO_LOW);
+		msleep(100);
+		gpio_set_value(TOUCH_RESET_PIN, GPIO_HIGH);
+		msleep(500);
+	}
+	return 0;
+}
+
+struct goodix_platform_data goodix_info = {
+	.model = 8105,
+	.irq_pin = RK30_PIN0_PA6,
+	.rest_pin = TOUCH_RESET_PIN,
+	.init_platform_hw = goodix_init_platform_hw,
+};
+#endif
+
 #if defined(CONFIG_CT36X_TS)
 
 #define TOUCH_MODEL		363
@@ -1585,6 +1665,27 @@ static struct rk616_platform_data rk616_pdata = {
 // i2c
 #ifdef CONFIG_I2C0_RK30
 static struct i2c_board_info __initdata i2c0_info[] = {
+
+#if defined (CONFIG_TOUCHSCREEN_86V_GT811_IIC)
+{
+	.type          = "gt811_ts",
+	.addr          = 0x5d,
+	.flags         = 0,
+	.irq           = TOUCH_INT_PIN,
+	.platform_data = &gt811_info,
+},
+#endif
+
+#if defined (CONFIG_TOUCHSCREEN_GT8XX)
+        {
+                .type          = "Goodix-TS",
+                .addr          = 0x5d,
+                .flags         = 0,
+                .irq           = RK30_PIN0_PA6,
+                .platform_data = &goodix_info,
+        },
+#endif
+
 #if defined (CONFIG_GS_MMA8452)
 	{
 		.type	        = "gs_mma8452",
