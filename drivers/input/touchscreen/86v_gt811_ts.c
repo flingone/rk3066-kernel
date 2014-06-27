@@ -329,7 +329,7 @@ static int goodix_init_panel(struct gt811_ts_data *ts)
 	ts->abs_x_max = (config_info[64]<<8) + config_info[63];
 	ts->max_touch_num = config_info[60];
 	ts->int_trigger_type = ((config_info[57]>>3)&0x01);
-//printk("GT811 init info ts->abs_y_max = %d,ts->abs_x_max = %d\n",ts->abs_y_max,ts->abs_x_max);
+	//printk("GT811 init info ts->abs_y_max = %d,ts->abs_x_max = %d\n",ts->abs_y_max,ts->abs_x_max);
 
 	//printk("GT811 init info TOUCH_MAX_WIDTH = %d,TOUCH_MAX_HEIGHT = %d\n",TOUCH_MAX_WIDTH,TOUCH_MAX_HEIGHT);
 
@@ -576,8 +576,11 @@ COORDINATE_POLL:
 		//	printk("gt811 fun work real gt811_x = %d , real gt811_y = %d \n",input_x,input_y);
 		//	printk("gt811 fun work gt811_y = %d,gt811_x = %d\n",ts->abs_y_max - input_x,ts->abs_x_max - input_y);
                          
-			input_report_abs(ts->input_dev, ABS_MT_POSITION_Y,ts->abs_y_max - input_x);
-			input_report_abs(ts->input_dev, ABS_MT_POSITION_X,ts->abs_x_max - input_y);			
+			//input_report_abs(ts->input_dev, ABS_MT_POSITION_Y,ts->abs_y_max - input_x);
+			//input_report_abs(ts->input_dev, ABS_MT_POSITION_X,ts->abs_x_max - input_y);			
+
+			input_report_abs(ts->input_dev, ABS_MT_POSITION_Y,input_x);
+			input_report_abs(ts->input_dev, ABS_MT_POSITION_X,input_y);			
 			input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, input_w);
 			//input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, input_w);
 			//input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, track_id[count]);
@@ -868,8 +871,8 @@ err_gpio_request_failed:
 	input_set_abs_params(ts->input_dev, ABS_Y, 0, ts->abs_y_max, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_PRESSURE, 0, 255, 0, 0);
 */	
-#ifdef GOODIX_MULTI_TOUCH
 
+#ifdef GOODIX_MULTI_TOUCH
 	__set_bit(INPUT_PROP_DIRECT, ts->input_dev->propbit);
 	__set_bit(EV_ABS, ts->input_dev->evbit);
 	
@@ -879,8 +882,6 @@ err_gpio_request_failed:
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, ts->abs_x_max, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, ts->abs_y_max, 0, 0);
 	//printk("\n\nhjc:%s,x_max=%d,y_max=%d\n",__func__,ts->abs_x_max,ts->abs_y_max);
-	
-	
 #endif	
 
 	sprintf(ts->phys, "input/ts");
@@ -1987,7 +1988,7 @@ begin_upgrade:
     }
     
 exit_downloader:
-    //mt_set_gpio_mode(GPIO_CTP_EINT_PIN, GPIO_CTP_EINT_PIN_M_EINT);
+   //mt_set_gpio_mode(GPIO_CTP_EINT_PIN, GPIO_CTP_EINT_PIN_M_EINT);
    // mt_set_gpio_out(GPIO_CTP_EN_PIN, GPIO_OUT_ONE);
        // gpio_direction_output(INT_PORT,1);
        // msleep(1);
