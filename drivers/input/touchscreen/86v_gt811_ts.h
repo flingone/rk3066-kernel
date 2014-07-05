@@ -36,8 +36,8 @@
 //#define STOP_IRQ_TYPE                     // if define then   no stop irq in irq_handle   kuuga add 1202S
 #define REFRESH 0     //0~0x64   Scan rate = 10000/(100+REFRESH)//define resolution of the LCD
 
-#define SHUTDOWN_PORT 	    RK30_PIN0_PA7 // RK2928_PIN0_PD3 
-#define INT_PORT 	        RK30_PIN0_PA6 //iomux_mode_to_gpio(SPI0_CS1)// RK30_PIN1_PB7//RK2928_PIN1_PB0  
+#define SHUTDOWN_PORT 	    RK30_PIN0_PA6 // RK2928_PIN0_PD3 
+#define INT_PORT 	        RK30_PIN0_PA7 //iomux_mode_to_gpio(SPI0_CS1)// RK30_PIN1_PB7//RK2928_PIN1_PB0  
 
 
 #ifdef INT_PORT

@@ -107,10 +107,12 @@ struct rk29_keys_platform_data rk29_keys_pdata = {
 };
 
 #if defined (CONFIG_TOUCHSCREEN_86V_GT811_IIC)
-#define TOUCH_RESET_PIN  RK30_PIN0_PA7
-#define TOUCH_INT_PIN    RK30_PIN0_PA6
+#define TOUCH_RESET_PIN  RK30_PIN0_PA6
+#define TOUCH_INT_PIN    RK30_PIN0_PA7
 int gt811_init_platform_hw(void)
 {
+    printk("gt811 reset pin0_PA6 \n");
+
     if(gpio_request(TOUCH_RESET_PIN,NULL) != 0){
       gpio_free(TOUCH_RESET_PIN);
       printk("gt811_init_platform_hw gpio_request error\n");
@@ -128,7 +130,7 @@ int gt811_init_platform_hw(void)
     gpio_set_value(TOUCH_RESET_PIN,GPIO_LOW);
     msleep(500);
     gpio_set_value(TOUCH_RESET_PIN,GPIO_HIGH);
-       mdelay(100);
+    mdelay(100);
 
     return 0;
 }
