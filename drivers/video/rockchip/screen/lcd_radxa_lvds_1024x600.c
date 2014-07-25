@@ -104,12 +104,12 @@ int dsp_lut[256] ={
 
 
 #if defined(CONFIG_RK616_LVDS)
-#define S_PLL_CFG_VAL		0x01842016
-#define S_FRAC			0xc16c2d
-#define S_SCL_VST		0x25
-#define S_SCL_HST		0x4ba
+#define S_PLL_CFG_VAL	0x01c42013
+#define S_FRAC			0x018d40
+#define S_SCL_VST		0x10
+#define S_SCL_HST		0x370
 #define S_VIF_VST		0x1
-#define S_VIF_HST		0xca
+#define S_VIF_HST		0xcf
 #endif
 
 //1920*1080*50
@@ -130,12 +130,12 @@ int dsp_lut[256] ={
 #endif
 
 #if defined(CONFIG_RK616_LVDS)
-#define S1_PLL_CFG_VAL		0x01c42016
-#define S1_FRAC			0x1f9ad4
-#define S1_SCL_VST		0x25
-#define S1_SCL_HST		0x5ab
+#define S1_PLL_CFG_VAL	0x01843014
+#define S1_FRAC			0x5d1746
+#define S1_SCL_VST		0x10
+#define S1_SCL_HST		0x41f
 #define S1_VIF_VST		0x1
-#define S1_VIF_HST		0xca
+#define S1_VIF_HST		0xcf
 #endif
 
 //1280*720*60
@@ -157,10 +157,10 @@ int dsp_lut[256] ={
 
 //bellow are for jettaB
 #if defined(CONFIG_RK616_LVDS)
-#define S2_PLL_CFG_VAL		0x01822016
-#define S2_FRAC			0xc16c2d
-#define S2_SCL_VST		0x19
-#define S2_SCL_HST		0x483
+#define S2_PLL_CFG_VAL	0x01c22013
+#define S2_FRAC			0x018d40
+#define S2_SCL_VST		0xb
+#define S2_SCL_HST		0x3de
 #define S2_VIF_VST		0x1
 #define S2_VIF_HST		0xcf
 #endif
@@ -183,10 +183,10 @@ int dsp_lut[256] ={
 #endif
 
 #if defined(CONFIG_RK616_LVDS)
-#define S3_PLL_CFG_VAL		0x01c22016
-#define S3_FRAC			0x1f9ad4
-#define S3_SCL_VST		0x19
-#define S3_SCL_HST		0x569
+#define S3_PLL_CFG_VAL	0x01823014
+#define S3_FRAC			0x5d1746
+#define S3_SCL_VST		0xb
+#define S3_SCL_HST		0x4a3
 #define S3_VIF_VST		0x1
 #define S3_VIF_HST		0xcf
 #endif
@@ -209,10 +209,10 @@ int dsp_lut[256] ={
 #endif
 
 #if defined(CONFIG_RK616_LVDS)
-#define S4_PLL_CFG_VAL		0x01412016
-#define S4_FRAC			0xa23d09
-#define S4_SCL_VST		0x2d
-#define S4_SCL_HST		0x33d
+#define S4_PLL_CFG_VAL	0x01812013
+#define S4_FRAC			0x71c71c
+#define S4_SCL_VST		0x22
+#define S4_SCL_HST		0x24b
 #define S4_VIF_VST		0x1
 #define S4_VIF_HST		0xc1
 #endif
@@ -235,15 +235,13 @@ int dsp_lut[256] ={
 #endif
 #if defined(CONFIG_RK616_LVDS)
 
-#define S5_PLL_CFG_VAL		0x01c11013
-#define S5_FRAC			0x25325e
-#define S5_SCL_VST		0x26
-#define S5_SCL_HST		0x2ae
+#define S5_PLL_CFG_VAL	0x01412013
+#define S5_FRAC			0x94965f
+#define S5_SCL_VST		0x1d
+#define S5_SCL_HST		0x157
 #define S5_VIF_VST		0x1
 #define S5_VIF_HST		0xc1
 #endif
 
 #endif
 #endif
-
-
