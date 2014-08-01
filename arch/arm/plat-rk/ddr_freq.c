@@ -224,8 +224,8 @@ static void ddrfreq_late_resume(struct early_suspend *h)
 static int video_state_release(struct inode *inode, struct file *file)
 {
 	dprintk(DEBUG_VIDEO_STATE, "video_state release\n");
-	ddr.video_state = '0';
-	ddrfreq_clear_sys_status(SYS_STATUS_VIDEO);
+	//ddr.video_state = '0';
+	//ddrfreq_clear_sys_status(SYS_STATUS_VIDEO);
 	return 0;
 }
 
