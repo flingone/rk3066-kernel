@@ -657,7 +657,7 @@ static struct sensor_platform_data light_stk3171_info = {
 #define LCD_EN_PIN         INVALID_GPIO
 #define LCD_EN_VALUE       GPIO_LOW
 #else
-#define LCD_CS_PIN         RK30_PIN4_PC7
+#define LCD_CS_PIN         INVALID_GPIO//RK30_PIN4_PC7
 #define LCD_CS_VALUE       GPIO_HIGH
 
 #define LCD_EN_PIN         RK30_PIN6_PB4
@@ -1010,6 +1010,22 @@ static struct gpio_led rk29_leds[] = {
 		.default_state = LEDS_GPIO_DEFSTATE_ON,
 	},
 #endif
+
+	{
+		.name = "LED1",
+		.gpio = RK30_PIN4_PC6,
+		.active_low = 0,
+		.retain_state_suspended = 0,
+		.default_state = LEDS_GPIO_DEFSTATE_ON,
+	},
+	{
+		.name = "LED2",
+		.gpio = RK30_PIN4_PC7,
+		.active_low = 0,
+		.retain_state_suspended = 0,
+		.default_state = LEDS_GPIO_DEFSTATE_OFF,
+	},
+
 };
 
 static struct gpio_led_platform_data rk29_leds_pdata = {
