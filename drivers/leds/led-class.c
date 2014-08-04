@@ -63,7 +63,50 @@ static ssize_t led_brightness_store(struct device *dev,
 
 	return ret;
 }
+static ssize_t led_blink_store_quick(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	char *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+    unsigned long  delay_on = 100;
+    unsigned long  delay_off = 100;
 
+	if (isspace(*after))
+		count++;
+
+	if (count == size) {
+		ret = count;
+		if(state == 0)
+			delay_on = 0;
+	}
+	led_blink_set(led_cdev,&delay_on,&delay_off);
+	return ret;
+}
+static ssize_t led_blink_store_slow(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	char *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+    unsigned long  delay_on = 500;
+    unsigned long  delay_off = 500;
+
+	if (isspace(*after))
+		count++;
+
+	if (count == size) {
+		ret = count;
+		if(state == 0)
+			delay_on = 0;
+	}
+	led_blink_set(led_cdev,&delay_on,&delay_off);
+	return ret;
+}
 static ssize_t led_max_brightness_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -78,6 +121,8 @@ static struct device_attribute led_class_attrs[] = {
 #ifdef CONFIG_LEDS_TRIGGERS
 	__ATTR(trigger, 0644, led_trigger_show, led_trigger_store),
 #endif
+	__ATTR(blinkquick,0644,NULL,led_blink_store_quick),
+	__ATTR(blinkslow,0644,NULL,led_blink_store_slow),
 	__ATTR_NULL,
 };
 
