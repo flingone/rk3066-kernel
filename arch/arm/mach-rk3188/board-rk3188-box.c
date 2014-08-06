@@ -87,10 +87,6 @@
 #include "./board-rk31-vmac.c"
 #endif
 
-/* led1: green, led2: blue */
-#define RADXA_STATUS_LED1 RK30_PIN0_PB4
-#define RADXA_STATUS_LED2 RK30_PIN0_PB6
-
 static struct rk29_keys_button key_button[] = {
 	{
 		.desc	= "play",
@@ -277,8 +273,6 @@ static int rk29_backlight_pwm_suspend(void)
 	gpio_set_value(BL_EN_PIN, !BL_EN_VALUE);
 #endif
 
-	gpio_direction_output(RADXA_STATUS_LED1, GPIO_HIGH);
-
 	return ret;
 }
 
@@ -293,8 +287,6 @@ static int rk29_backlight_pwm_resume(void)
 	gpio_direction_output(BL_EN_PIN, 1);
 	gpio_set_value(BL_EN_PIN, BL_EN_VALUE);
 #endif
-
-	gpio_direction_output(RADXA_STATUS_LED1, GPIO_LOW);
 
 	return 0;
 }
@@ -2434,9 +2426,6 @@ static void __init machine_rk30_board_init(void)
 	pm_power_off = rk30_pm_power_off;
 	
         gpio_direction_output(POWER_ON_PIN, GPIO_HIGH);
-
-	gpio_request(RADXA_STATUS_LED1, "led1");
-	gpio_direction_output(RADXA_STATUS_LED1, GPIO_LOW);
 
 	rk30_i2c_register_board_info();
 	spi_register_board_info(board_spi_devices, ARRAY_SIZE(board_spi_devices));
