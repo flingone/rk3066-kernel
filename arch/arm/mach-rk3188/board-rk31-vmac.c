@@ -105,7 +105,7 @@ static int rk30_rmii_power_control(int enable)
 		iomux_set(RMII_CRS);
 		iomux_set(RMII_MD);
 		iomux_set(RMII_MDCLK);
-		iomux_set(GPIO3_D2);
+		//iomux_set(GPIO3_D2);
 #if 1
 		//regulator_set_voltage(ldo_33, 3300000, 300000);
 		if (ldo_33 && (!regulator_is_enabled(ldo_33))) {
@@ -113,11 +113,11 @@ static int rk30_rmii_power_control(int enable)
                 	regulator_put(ldo_33);
 		}
 
+#else
 		//gpio_direction_output(RK30_PIN3_PD2, GPIO_LOW);
 		gpio_set_value(RK30_PIN3_PD2, GPIO_LOW);
 		msleep(20);
 		gpio_set_value(RK30_PIN3_PD2, GPIO_HIGH);
-#else
 		iomux_set(GPIO0_C0);
 
 		gpio_direction_output(PHY_PWR_EN_GPIO, GPIO_HIGH);
