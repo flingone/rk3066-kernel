@@ -1511,6 +1511,7 @@ static struct gpio_led rk3188_leds[] = {
 		.default_state = LEDS_GPIO_DEFSTATE_OFF,
 	},
 	#endif
+#endif
 	{
 		.name = "green",
 		.default_trigger = "heartbeat",
@@ -1528,7 +1529,6 @@ static struct gpio_led rk3188_leds[] = {
 		.gpio = RK30_PIN0_PB7,
 		.default_state = LEDS_GPIO_DEFSTATE_ON,
 	},
-#endif
 };
 
 static struct gpio_led_platform_data rk3188_leds_pdata = {
