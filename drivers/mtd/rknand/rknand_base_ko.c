@@ -17,6 +17,7 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mutex.h>
 #include <linux/kthread.h>
+#include <linux/ktime.h>
 #include <linux/reboot.h>
 #include <asm/io.h>
 #include <asm/mach/flash.h>
@@ -233,6 +234,19 @@ static int rknand_write(struct mtd_info *mtd, loff_t from, size_t len,
 	return 0;
 }
 
+static int rknand_diacard(struct mtd_info *mtd, loff_t from, size_t len)
+{
+	int ret = 0;
+	int sector = len>>9;
+	int LBA = (int)(from>>9);
+	//printk("rknand_diacard: from=%x,sector=%x,\n",(int)LBA,sector);
+    if(sector && gpNandInfo->ftl_discard)
+    {
+		ret = gpNandInfo->ftl_discard(LBA, sector);
+    }
+	return ret;
+}
+
 static int rknand_erase(struct mtd_info *mtd, struct erase_info *instr)
 {
 	int ret = 0;
@@ -273,26 +287,36 @@ int GetIdBlockSysData(char * buf, int Sector)
     return 0;
 }
 
-char GetSNSectorInfo(char * pbuf)
-{
-    if(gpNandInfo->GetSNSectorInfo)
-	   return( gpNandInfo->GetSNSectorInfo( pbuf));
-    return 0;
-}
-
-
 char GetSNSectorInfoBeforeNandInit(char * pbuf)
 {
-    char * sn_addr = ioremap(0x10501600,0x200);
+    #if defined(CONFIG_ARCH_RK2928) || defined(CONFIG_ARCH_RK3026)
+    char * sn_addr = ioremap(RK2928_NANDC_PHYS+0x1600,0x200);
+    #else
+    char * sn_addr = ioremap(RK30_NANDC_PHYS+0x1600,0x200);
+    #endif
     memcpy(pbuf,sn_addr,0x200);
     iounmap(sn_addr);
 	//print_hex_dump(KERN_WARNING, "sn:", DUMP_PREFIX_NONE, 16,1, sn_addr, 16, 0);
     return 0;
 } 
 
+char GetSNSectorInfo(char * pbuf)
+{
+    if(gpNandInfo->GetSNSectorInfo)
+	   return( gpNandInfo->GetSNSectorInfo( pbuf));
+	else
+	   return GetSNSectorInfoBeforeNandInit(pbuf);
+    return 0;
+}
+
+
 char GetVendor0InfoBeforeNandInit(char * pbuf)
 {
-    char * sn_addr = ioremap(0x10501400,0x200);
+    #if defined(CONFIG_ARCH_RK2928) || defined(CONFIG_ARCH_RK3026)
+    char * sn_addr = ioremap(RK2928_NANDC_PHYS+0x1600,0x200);
+    #else
+    char * sn_addr = ioremap(RK30_NANDC_PHYS+0x1400,0x200);
+    #endif
     memcpy(pbuf,sn_addr + 8,504);
     iounmap(sn_addr);
 	//print_hex_dump(KERN_WARNING, "sn:", DUMP_PREFIX_NONE, 16,1, sn_addr, 16, 0);
@@ -303,12 +327,6 @@ char GetChipSectorInfo(char * pbuf)
 {
     if(gpNandInfo->GetChipSectorInfo)
 	   return( gpNandInfo->GetChipSectorInfo( pbuf));
-	else
-	{
-        char * sn_addr = ioremap(0x10501600,0x200);
-        memcpy(pbuf,sn_addr,0x200);
-        iounmap(sn_addr);
-	}
     return 0;
 }
 
@@ -398,6 +416,7 @@ static int rknand_info_init(struct rknand_info *nand_info)
 	mtd->unpoint = NULL;
 	mtd->read = rknand_read;
 	mtd->write = rknand_write;
+	mtd->discard = rknand_diacard;
 	mtd->read_oob = NULL;
 	mtd->write_oob = NULL;
 	mtd->panic_write = rknand_panic_write;

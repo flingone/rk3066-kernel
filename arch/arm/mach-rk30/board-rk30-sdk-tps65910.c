@@ -333,7 +333,7 @@ int tps65910_post_init(struct tps65910 *tps65910)
 	udelay(100);
 
 	ldo = regulator_get(NULL, "vmmc");  //vcc28_cif
-	regulator_set_voltage(ldo,3300000,3300000);
+	regulator_set_voltage(ldo,2800000,2800000);
 	regulator_enable(ldo); 
 	printk("%s set vmmc vcc28_cif=%dmV end\n", __func__, regulator_get_voltage(ldo));
 	regulator_put(ldo);
@@ -601,13 +601,9 @@ static struct regulator_init_data tps65910_ldo8 = {
 
 void __sramfunc board_pmu_tps65910_suspend(void)
 {	
-#if defined (CONFIG_DWC_REMOTE_WAKEUP)|| defined (CONFIG_RK_IR_WAKEUP)
-	;
-#else
 	grf_writel(GPIO6_PB1_DIR_OUT, GRF_GPIO6L_DIR_ADDR);
 	grf_writel(GPIO6_PB1_DO_HIGH, GRF_GPIO6L_DO_ADDR);  //set gpio6_b1 output low
 	grf_writel(GPIO6_PB1_EN_MASK, GRF_GPIO6L_EN_ADDR);
-#endif
 }
 void __sramfunc board_pmu_tps65910_resume(void)
 {

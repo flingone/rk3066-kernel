@@ -1,4 +1,3 @@
-
 /*
  * rk29_pcm.c  --  ALSA SoC ROCKCHIP PCM Audio Layer Platform driver
  *
@@ -37,7 +36,7 @@
 #define DBG(x...) do { } while (0)
 #endif
 
-#define INFIN_LOOP
+//#define INFIN_LOOP
 #ifdef INFIN_LOOP
 #define DMA_INFIN_LOOP() rk29_dma_has_infiniteloop()
 #else
@@ -65,7 +64,7 @@ static const struct snd_pcm_hardware rockchip_pcm_hardware = {
 #ifdef CONFIG_RK_SRAM_DMA
 	.period_bytes_max	= 8*1024,
 #else
-	.period_bytes_max	= 1024*6*2,//2048*4,///PAGE_SIZE*2,
+	.period_bytes_max	= 32*1024,//2048*4,///PAGE_SIZE*2,
 #endif
 	.periods_min		= 3,///2,
 	.periods_max		= 128,
@@ -95,6 +94,17 @@ struct rockchip_runtime_data {
 };
 
 
+#ifdef CONFIG_ARCH_RK319X
+typedef struct _vocipc_msg_buffer_response{
+	unsigned int play_buffer_size;
+	unsigned int record_buffer_size;
+	dma_addr_t play_buffer_address;
+	dma_addr_t record_buffer_address;
+	dma_addr_t play_offset_register_address;
+	dma_addr_t record_offset_register_address;
+} vocipc_msg_buffer_response_t;
+static vocipc_msg_buffer_response_t vocipc_msg_buffer;
+#endif
 /* rockchip_pcm_enqueue
  *
  * place a dma buffer onto the queue for the dma system
@@ -123,7 +133,6 @@ static void rockchip_pcm_enqueue(struct snd_pcm_substream *substream)
 		else
 			rk29_dma_config(prtd->params->channel,
 							prtd->params->dma_size, 16);	
-
 		ret = rk29_dma_enqueue_ring(prtd->params->channel,
 				substream, pos, prtd->dma_period, limit ,true);
 		if (ret == 0) 
@@ -150,7 +159,6 @@ static void rockchip_pcm_enqueue(struct snd_pcm_substream *substream)
 				prtd->params->flag = 1;
 				DBG("size = 1, channel = %d, flag = %d\n",prtd->params->channel,prtd->params->flag);
 			}
-
 
 			ret = rk29_dma_enqueue(prtd->params->channel,substream, pos, len);
 	//		if(prtd->params->channel == 2)
@@ -253,7 +261,7 @@ static int rockchip_pcm_hw_params(struct snd_pcm_substream *substream,
 	if (prtd->params == NULL) {
 		/* prepare DMA */
 		prtd->params = dma;
-#ifdef CONFIG_SND_DMA_EVENT_DYNAMIC
+#ifdef CONFIG_SND_I2S_DMA_EVENT_DYNAMIC
 		DBG("params %p, client %p, channel %d\n", prtd->params,prtd->params->client, prtd->params->channel);
 		ret = rk29_dma_request(prtd->params->channel, prtd->params->client, NULL);
 		DBG("Enter::%s, %d, ret=%d, Channel=%d\n", __FUNCTION__, __LINE__, ret, prtd->params->channel);
@@ -285,10 +293,8 @@ static int rockchip_pcm_hw_params(struct snd_pcm_substream *substream,
 	prtd->next = NULL;
 	prtd->end = NULL;
 	spin_unlock_irq(&prtd->lock);
-
-	//if((totbytes-(prtd->dma_period*prtd->dma_limit))!=0)
-	//	printk( "i2s dma info:periodsize(%ld),limit(%d),buffersize(%d),over(%d)\n",
-	//		prtd->dma_period,prtd->dma_limit,totbytes,totbytes-(prtd->dma_period*prtd->dma_limit));
+	printk(KERN_DEBUG "i2s dma info:periodsize(%d),limit(%d),buffersize(%ld),over(%ld)\n",
+			prtd->dma_period,prtd->dma_limit,totbytes,totbytes-(prtd->dma_period*prtd->dma_limit));
 	return ret;
 }
 
@@ -301,7 +307,7 @@ static int rockchip_pcm_hw_free(struct snd_pcm_substream *substream)
 	snd_pcm_set_runtime_buffer(substream, NULL);
 
 	if (prtd->params) {
-#ifdef CONFIG_SND_DMA_EVENT_DYNAMIC	
+#ifdef CONFIG_SND_I2S_DMA_EVENT_DYNAMIC		
 		rk29_dma_free(prtd->params->channel, prtd->params->client);
 		prtd->params = NULL;
 #endif		
@@ -558,6 +564,17 @@ static int rockchip_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 #endif
 	if (!buf->area)
 		return -ENOMEM;
+#ifdef CONFIG_ARCH_RK319X
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		vocipc_msg_buffer.play_buffer_size = 4096;
+		vocipc_msg_buffer.play_buffer_address = buf->addr;
+		vocipc_msg_buffer.play_offset_register_address = RK30_DMAC1_PHYS + 0x400;
+	} else{
+		vocipc_msg_buffer.record_buffer_size = 4096;
+		vocipc_msg_buffer.record_buffer_address = buf->addr;
+		vocipc_msg_buffer.record_offset_register_address = RK30_DMAC1_PHYS + 0x404;
+	}
+#endif
 	buf->bytes = size;
 	DBG("%s: size %d\n",__FUNCTION__, size);
 	return 0;
@@ -693,3 +710,49 @@ MODULE_AUTHOR("rockchip");
 MODULE_DESCRIPTION("ROCKCHIP PCM ASoC Interface");
 MODULE_LICENSE("GPL");
 
+#ifdef CONFIG_ARCH_RK319X
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+static ssize_t pcm_info_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	printk("pcm_info_write\n");
+	printk("pcm_info_show:::\nplay  :buffer_size=%d  buffer_address=0x%x  offset_register_address=0x%x\nrecord:buffer_size=%d  buffer_address=0x%x  offset_register_address=0x%x\n",
+		vocipc_msg_buffer.play_buffer_size,
+		vocipc_msg_buffer.play_buffer_address,
+		vocipc_msg_buffer.play_offset_register_address,
+		vocipc_msg_buffer.record_buffer_size,
+		vocipc_msg_buffer.record_buffer_address,
+		vocipc_msg_buffer.record_offset_register_address);
+	return count;
+}
+
+static ssize_t pcm_info_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+{
+	vocipc_msg_buffer_response_t *p_vocipc_msg_buffer = &vocipc_msg_buffer;
+	ssize_t ret = 0;
+
+	ret = sizeof(vocipc_msg_buffer_response_t);
+    if(copy_to_user(buf, (char *)p_vocipc_msg_buffer, sizeof(vocipc_msg_buffer_response_t)))
+        ret = -EIO;
+
+	return ret;
+}
+static int pcm_info_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static const struct file_operations proc_pcm_fops = {
+	.open		= pcm_info_open,
+	.read		= pcm_info_read,
+	.write		= pcm_info_write,
+};
+
+static int __init pcm_proc_init(void)
+{
+	proc_create("rockchips_pcm_info", 0, NULL, &proc_pcm_fops);
+	return 0;
+}
+late_initcall(pcm_proc_init);
+#endif

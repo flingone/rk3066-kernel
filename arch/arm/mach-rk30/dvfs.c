@@ -26,6 +26,7 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/hrtimer.h>
+#include <plat/efuse.h>
 
 static int rk_dvfs_clk_notifier_event(struct notifier_block *this,
 		unsigned long event, void *ptr)
@@ -76,16 +77,97 @@ static int rk_dvfs_clk_notifier_event(struct notifier_block *this,
 static struct notifier_block rk_dvfs_clk_notifier = {
 	.notifier_call = rk_dvfs_clk_notifier_event,
 };
+
+struct lkg_maxvolt {
+	int leakage_level;
+	unsigned int maxvolt;
+};
+static struct lkg_maxvolt lkg_volt_table[] = {
+	{.leakage_level = 4500,		.maxvolt = 1350 * 1000},
+	{.leakage_level = 9000,		.maxvolt = 1300 * 1000},
+	{.leakage_level = 22500,	.maxvolt = 1250 * 1000},
+};
+static int leakage_level = 0;
+#define MHZ	(1000 * 1000)
+#define KHZ	(1000)
+// Delayline bound for nandc = 148.5MHz, Varm = Vlog = 1.00V
+#define HIGH_DELAYLINE	125
+#define LOW_DELAYLINE	125
+static u8 rk30_get_avs_val(void);
+void dvfs_adjust_table_lmtvolt(struct clk *clk, struct cpufreq_frequency_table *table)
+{
+	int i = 0;
+	unsigned int maxvolt = 0;
+	if (IS_ERR_OR_NULL(clk) || IS_ERR_OR_NULL(table)) {
+		DVFS_ERR("%s: clk error OR table error\n", __func__);
+		return ;
+	}
+
+	leakage_level = rk_leakage_val();
+	printk("DVFS MSG: %s: %s get leakage_level = %d\n", clk->name, __func__, leakage_level);
+	if (leakage_level == 0) {
+
+		/*
+		 * This is for delayline auto scale voltage,
+		 * FIXME: HIGH_DELAYLINE / LOW_DELAYLINE value maybe redefined under
+		 * Varm = Vlog = 1.00V.
+		 * Warning: this value is frequency/voltage sensitive, care
+		 * about Freq nandc/Volt log.
+		 *
+		 */
+
+		unsigned long delayline_val = 0;
+		unsigned long high_delayline = 0, low_delayline = 0;
+		unsigned long rate_nandc = 0;
+
+		// rk3168: do nothing
+		return;
+
+		rate_nandc = clk_get_rate(clk_get(NULL, "nandc")) / KHZ;
+		printk("Get nandc rate = %lu KHz\n", rate_nandc);
+		high_delayline = HIGH_DELAYLINE * 148500 / rate_nandc;
+		low_delayline = LOW_DELAYLINE * 148500 / rate_nandc;
+		delayline_val = rk30_get_avs_val();
+		printk("This chip no leakage msg, use delayline instead, val = %lu.(HDL=%lu, LDL=%lu)\n",
+				delayline_val, high_delayline, low_delayline);
+
+		if (delayline_val >= high_delayline) {
+			leakage_level = 4;	//same as leakage_level > 4
+
+		} else if (delayline_val <= low_delayline) {
+			leakage_level = 1;
+			printk("Delayline TOO LOW, high voltage request\n");
+
+		} else
+			leakage_level = 2;	//same as leakage_level = 3
+	}
+
+	for (i = 0; i < ARRAY_SIZE(lkg_volt_table); i++) {
+		if (leakage_level <= lkg_volt_table[i].leakage_level) {
+			maxvolt = lkg_volt_table[i].maxvolt;
+			break;
+		}
+	}
+
+	maxvolt = maxvolt ? maxvolt : lkg_volt_table[i-1].maxvolt;
+
+	for (i = 0; table[i].frequency != CPUFREQ_TABLE_END; i++) {
+		if (table[i].index > maxvolt) {
+			printk("\t\tadjust table freq=%d KHz, index=%d mV", table[i].frequency, table[i].index);
+			table[i].index = maxvolt;
+			printk(" to index=%d mV\n", table[i].index);
+		}
+	}
+}
 #ifdef CONFIG_ARCH_RK3066B
-static int g_arm_high_logic = 50 * 1000;
-static int g_logic_high_arm = 100 * 1000;
+static int g_arm_high_logic = 0 * 1000;
+static int g_logic_high_arm = 50 * 1000;
 #else
 static int g_arm_high_logic = 150 * 1000;
 static int g_logic_high_arm = 100 * 1000;
 #endif
 
-
-#ifdef CONFIG_SOC_RK3168
+#if defined(CONFIG_SOC_RK3168) || defined(CONFIG_SOC_RK3028)
 static struct cpufreq_frequency_table arm_high_logic_table[] = {
         {.frequency = 1416 * DVFS_KHZ, .index = 0 * DVFS_MV},
         {.frequency = 1608 * DVFS_KHZ, .index = 0 * DVFS_MV},
@@ -97,7 +179,7 @@ static struct cpufreq_frequency_table logic_high_arm_table[] = {
         {.frequency = 1608 * DVFS_KHZ, .index = 50 * DVFS_MV},
         {.frequency = CPUFREQ_TABLE_END},
 };
-#else
+#elif defined(CONFIG_ARCH_RK30XX)
 static struct cpufreq_frequency_table arm_high_logic_table[] = {
         {.frequency = 1416 * DVFS_KHZ, .index = 50 * DVFS_MV},
         {.frequency = 1608 * DVFS_KHZ, .index = 100 * DVFS_MV},
@@ -108,8 +190,19 @@ static struct cpufreq_frequency_table logic_high_arm_table[] = {
         {.frequency = 1416 * DVFS_KHZ, .index = 150 * DVFS_MV},
         {.frequency = 1608 * DVFS_KHZ, .index = 100 * DVFS_MV},
 };
-#endif
+#else
+static struct cpufreq_frequency_table arm_high_logic_table[] = {
+        {.frequency = 1416 * DVFS_KHZ, .index = 0 * DVFS_MV},
+        {.frequency = 1608 * DVFS_KHZ, .index = 0 * DVFS_MV},
+        {.frequency = CPUFREQ_TABLE_END},
+};
 
+static struct cpufreq_frequency_table logic_high_arm_table[] = {
+        {.frequency = 1008 * DVFS_KHZ, .index = 50 * DVFS_MV},
+        {.frequency = 1608 * DVFS_KHZ, .index = 50 * DVFS_MV},
+        {.frequency = CPUFREQ_TABLE_END},
+};
+#endif
 
 int get_arm_logic_limit(unsigned long arm_rate, int *arm_high_logic, int *logic_high_arm)
 {
@@ -602,7 +695,6 @@ int rk_dvfs_init(void)
 
 /******************************rk30 avs**************************************************/
 
-#ifdef CONFIG_ARCH_RK3066B
 
 static void __iomem *rk30_nandc_base=NULL;
 
@@ -628,7 +720,13 @@ static u8 rk30_get_avs_val(void)
 	nandc_writel(nanc_save_reg[0] | 0x1 << 14, 0);
 	nandc_writel(0x5, 0x130);
 
+	/* Just break lock status */
+	nandc_writel(0x1, 0x158);
+#ifdef CONFIG_ARCH_RK3066B
 	nandc_writel(3, 0x158);
+#else
+	nandc_writel(7, 0x158);
+#endif
 	nandc_writel(1, 0x134);
 
 	while(count--) {
@@ -657,6 +755,5 @@ static struct avs_ctr_st rk30_avs_ctr= {
 	.avs_init 		=rk30_avs_init,
 	.avs_get_val	= rk30_get_avs_val,
 };
-#endif
 
 

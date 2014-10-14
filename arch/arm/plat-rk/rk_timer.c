@@ -144,6 +144,9 @@ static __cpuinit int rk_timer_init_clockevent(struct clock_event_device *ce, uns
 	struct irqaction *irq = &timer.ce_irq[cpu];
 	void __iomem *base = timer.ce_base[cpu];
 
+	if (!base)
+		return 0;
+
 	ce->name = timer.ce_name[cpu];
 	ce->features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT;
 	ce->set_next_event = rk_timer_set_next_event;
@@ -176,12 +179,17 @@ static cycle_t rk_timer_read(struct clocksource *cs)
 #define SHIFT	26
 #define MASK	(u32)~0
 
+static void rk_clocksource_suspend_pm(struct clocksource *cs);
+static void rk_clocksource_resume_pm(struct clocksource *cs);
+static bool cs_suspended=false;
 static struct clocksource rk_timer_clocksource = {
 	.name           = TIMER_NAME,
 	.rating         = 200,
 	.read           = rk_timer_read,
 	.mask           = CLOCKSOURCE_MASK(32),
 	.flags          = CLOCK_SOURCE_IS_CONTINUOUS,
+	.suspend		=rk_clocksource_suspend_pm,
+	.resume		=rk_clocksource_resume_pm,
 };
 
 static void __init rk_timer_init_clocksource(void)
@@ -213,12 +221,15 @@ unsigned long long notrace sched_clock(void)
 		return 0;
 
 	cyc = ~rk_timer_read_current_value(timer.cs_base);
+	if(cs_suspended==true)
+		return  cd.epoch_ns;
 	return cyc_to_fixed_sched_clock(&cd, cyc, MASK, MULT, SHIFT);
 }
 
 static void notrace rk_timer_update_sched_clock(void)
 {
 	u32 cyc = ~rk_timer_read_current_value(timer.cs_base);
+	if(cs_suspended==false)
 	update_sched_clock(&cd, cyc, MASK);
 }
 
@@ -227,7 +238,75 @@ static void __init rk_timer_init_sched_clock(void)
 	init_fixed_sched_clock(&cd, rk_timer_update_sched_clock, 32, 24000000, MULT, SHIFT);
 }
 
-#ifndef CONFIG_LOCAL_TIMERS
+/***********************************  sleep ****************************************/
+
+
+static inline void update_sched_clock_pm_resume(struct clock_data *cd, u32 cyc, u32 mask)
+{
+	unsigned long flags;
+	u64 ns = cd->epoch_ns 
+		/*+cyc_to_ns((24*10*1*1) & mask, cd->mult, cd->shift)*/;
+	/*
+	 * Write epoch_cyc and epoch_ns in a way that the update is
+	 * detectable in cyc_to_fixed_sched_clock().
+	 */
+	raw_local_irq_save(flags);
+	cd->epoch_cyc = cyc;
+	smp_wmb();
+	cd->epoch_ns = ns;
+	smp_wmb();
+	cd->epoch_cyc_copy = cyc;
+	raw_local_irq_restore(flags);
+}
+
+
+static void notrace rk30_update_sched_clock_resume(void)
+{
+	u32 cyc = ~rk_timer_read_current_value(timer.cs_base);
+	update_sched_clock_pm_resume(&cd, cyc, MASK);
+}
+
+static void rk_clocksource_suspend_pm(struct clocksource *cs)
+{
+	void __iomem *base = timer.cs_base;
+	rk_timer_update_sched_clock();
+	cs_suspended=true;
+
+	rk_timer_disable(base);
+
+	clk_disable(timer.cs_clk);
+	clk_disable(timer.cs_pclk);
+
+	
+
+}
+static void rk_clocksource_resume_pm(struct clocksource *cs)
+{
+	//struct clocksource *cs = &rk_timer_clocksource;
+	
+	void __iomem *base = timer.cs_base;
+	clk_enable(timer.cs_pclk);
+	clk_enable(timer.cs_clk);
+
+	rk_timer_disable(base);
+	writel_relaxed(0xFFFFFFFF, base + TIMER_LOAD_COUNT0);
+	writel_relaxed(0xFFFFFFFF, base + TIMER_LOAD_COUNT1);
+	dsb();
+	rk_timer_enable(base, TIMER_MODE_FREE_RUNNING | TIMER_INT_MASK);	
+	
+	rk30_update_sched_clock_resume();
+	rk_timer_update_sched_clock();
+	cs_suspended=false;
+	//sram_printascii("rk_clocksource_resume_pm");
+	//sram_printhex(rk_timer_read_current_value(timer.cs_base));
+	//sram_printhex(rk_timer_read_current_value(timer.cs_base));
+	//printk("%s =%x\n",__FUNCTION__,rk_timer_read_current_value(timer.cs_base));
+	//printk("%s =%x\n",__FUNCTION__,rk_timer_read_current_value(timer.cs_base));
+}
+
+/*******************************sleep end***********************************/
+
+#if !defined(CONFIG_LOCAL_TIMERS) || defined(CONFIG_HAVE_ARM_TWD)
 static struct clock_event_device rk_timer_clockevent;
 #endif
 
@@ -247,15 +326,17 @@ static int __init rk_timer_probe(struct platform_device *pdev)
 
 		snprintf(timer.ce_name[cpu], sizeof(timer.ce_name[cpu]), TIMER_NAME "%d", cpu);
 
+		snprintf(name, sizeof(name), "ce_base%d", cpu);
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
+		if (!res)
+			continue;
+		timer.ce_base[cpu] = (void *)res->start;
+
 		snprintf(name, sizeof(name), "ce_clk%d", cpu);
 		timer.ce_clk[cpu] = clk_get(NULL, platform_get_string_byname(pdev, name));
 
 		snprintf(name, sizeof(name), "ce_pclk%d", cpu);
 		timer.ce_pclk[cpu] = clk_get(NULL, platform_get_string_byname(pdev, name));
-
-		snprintf(name, sizeof(name), "ce_base%d", cpu);
-		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
-		timer.ce_base[cpu] = (void *)res->start;
 
 		snprintf(name, sizeof(name), "ce_irq%d", cpu);
 		irq->irq = platform_get_irq_byname(pdev, name);
@@ -268,13 +349,13 @@ static int __init rk_timer_probe(struct platform_device *pdev)
 	}
 
 	rk_timer_init_clocksource();
-#ifndef CONFIG_LOCAL_TIMERS
-	rk_timer_clockevent.rating = 200;
+#if !defined(CONFIG_LOCAL_TIMERS) || defined(CONFIG_HAVE_ARM_TWD)
+	rk_timer_clockevent.rating = 400;
 	rk_timer_init_clockevent(&rk_timer_clockevent, 0);
 #endif
 	rk_timer_init_sched_clock();
 
-	printk("rk_timer: version 1.2\n");
+	printk("rk_timer: version 1.3\n");
 	return 0;
 }
 
@@ -287,7 +368,7 @@ static struct platform_driver rk_timer_driver __initdata = {
 
 early_platform_init(TIMER_NAME, &rk_timer_driver);
 
-#ifdef CONFIG_LOCAL_TIMERS
+#if defined(CONFIG_LOCAL_TIMERS) && !defined(CONFIG_HAVE_ARM_TWD)
 /*
  * Setup the local clock events for a CPU.
  */

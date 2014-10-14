@@ -1,5 +1,6 @@
 #include <linux/clk.h>
 #include <linux/cpufreq.h>
+#include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -35,6 +36,7 @@ static void __init rk30_cpu_axi_init(void)
 #endif
 	CPU_AXI_SET_QOS_PRIORITY(3, 3, LCDC0);
 	CPU_AXI_SET_QOS_PRIORITY(3, 3, LCDC1);
+	CPU_AXI_SET_QOS_PRIORITY(2, 1, GPU);
 
 	writel_relaxed(0x3f, RK30_CPU_AXI_BUS_BASE + 0x0014);	// memory scheduler read latency
 	dsb();
@@ -55,10 +57,14 @@ static void __init rk30_cpu_axi_init(void)
 	L2_LY_SET(read_cycles, L2_LY_RD_OFF) | \
 	L2_LY_SET(write_cycles, L2_LY_WR_OFF)
 
+static u32 l2_aux_ctrl, l2_aux_ctrl_mask, l2_data_latency_ctrl;
+
 static void __init rk30_l2_cache_init(void)
 {
 #ifdef CONFIG_CACHE_L2X0
-	u32 aux_ctrl, aux_ctrl_mask, data_latency_ctrl;
+#if defined(CONFIG_ARCH_RK3188) || defined(CONFIG_ARCH_RK319X)
+	l2_data_latency_ctrl = L2_LATENCY(2, 3, 1);
+#else
 	unsigned int max_cpu_freq = 1608000; // kHz
 	struct cpufreq_frequency_table *table = NULL;
 	struct clk *clk_cpu;
@@ -77,16 +83,17 @@ static void __init rk30_l2_cache_init(void)
 	}
 
 	if (max_cpu_freq <= 1608000)
-		data_latency_ctrl = L2_LATENCY(4, 6, 1);
+		l2_data_latency_ctrl = L2_LATENCY(4, 6, 1);
 	else if (max_cpu_freq <= 1800000)
-		data_latency_ctrl = L2_LATENCY(5, 7, 1);
+		l2_data_latency_ctrl = L2_LATENCY(5, 7, 1);
 	else if (max_cpu_freq <= 1992000)
-		data_latency_ctrl = L2_LATENCY(5, 8, 1);
+		l2_data_latency_ctrl = L2_LATENCY(5, 8, 1);
 	else
-		data_latency_ctrl = L2_LATENCY(6, 8, 1);
+		l2_data_latency_ctrl = L2_LATENCY(6, 8, 1);
+#endif
 
 	writel_relaxed(L2_LATENCY(1, 1, 1), RK30_L2C_BASE + L2X0_TAG_LATENCY_CTRL);
-	writel_relaxed(data_latency_ctrl, RK30_L2C_BASE + L2X0_DATA_LATENCY_CTRL);
+	writel_relaxed(l2_data_latency_ctrl, RK30_L2C_BASE + L2X0_DATA_LATENCY_CTRL);
 
 	/* L2X0 Prefetch Control */
 	writel_relaxed(0x70000003, RK30_L2C_BASE + L2X0_PREFETCH_CTRL);
@@ -94,7 +101,7 @@ static void __init rk30_l2_cache_init(void)
 	/* L2X0 Power Control */
 	writel_relaxed(L2X0_DYNAMIC_CLK_GATING_EN | L2X0_STNDBY_MODE_EN, RK30_L2C_BASE + L2X0_POWER_CTRL);
 
-	aux_ctrl = (
+	l2_aux_ctrl = (
 			(0x1 << 25) | 	// round-robin
 			(0x1 << 0) |		// Full Line of Zero Enable
 			(0x1 << L2X0_AUX_CTRL_NS_LOCKDOWN_SHIFT) |
@@ -102,53 +109,119 @@ static void __init rk30_l2_cache_init(void)
 			(0x1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT) |
 			(0x1 << L2X0_AUX_CTRL_EARLY_BRESP_SHIFT) );
 
-	aux_ctrl_mask = ~(
+	l2_aux_ctrl_mask = ~(
 			(0x1 << 25) | 	// round-robin
 			(0x1 << 0) |		// Full Line of Zero Enable
 			(0x1 << L2X0_AUX_CTRL_NS_LOCKDOWN_SHIFT) |
 			(0x1 << L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT) |
 			(0x1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT) |
 			(0x1 << L2X0_AUX_CTRL_EARLY_BRESP_SHIFT) );
-
-	l2x0_init(RK30_L2C_BASE, aux_ctrl, aux_ctrl_mask);
+	
+	l2x0_init(RK30_L2C_BASE, l2_aux_ctrl, l2_aux_ctrl_mask);
 #endif
 }
+#if 0
+//cache-l2x.c
+void l2x0_inv_all_pm(void)
+{
+	unsigned long flags;
+	/* invalidate all ways */
+	//spin_lock_irqsave(&l2x0_lock, flags);
+	/* Invalidating when L2 is enabled is a nono */
+	//BUG_ON(readl(l2x0_base + L2X0_CTRL) & 1);
+	writel_relaxed(l2x0_way_mask, l2x0_base + L2X0_INV_WAY);
+	cache_wait_way(l2x0_base + L2X0_INV_WAY, l2x0_way_mask);
+	cache_sync();
+	//spin_unlock_irqrestore(&l2x0_lock, flags);
+}
+#endif
+#define CACHE_LINE_SIZE		32
 
+void l2x0_init_pm(void __iomem *base, __u32 aux_val, __u32 aux_mask)
+{
+	__u32 aux;
+	__u32 way_size = 0;
+	const char *type;
+	uint32_t l2x0_way_mask;	/* Bitmask of active ways */
+	uint32_t l2x0_size;
+	u32 l2x0_cache_id;
+	unsigned int l2x0_sets;
+	unsigned int l2x0_ways;
+	void __iomem *l2x0_base;
+
+	l2x0_base = base;
+
+	l2x0_cache_id = readl_relaxed(l2x0_base + L2X0_CACHE_ID);
+	aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
+
+	aux &= aux_mask;
+	aux |= aux_val;
+
+	/* Determine the number of ways */
+	switch (l2x0_cache_id & L2X0_CACHE_ID_PART_MASK) {
+	case L2X0_CACHE_ID_PART_L310:
+		if (aux & (1 << 16))
+			l2x0_ways = 16;
+		else
+			l2x0_ways = 8;
+		type = "L310";
+		break;
+	case L2X0_CACHE_ID_PART_L210:
+		l2x0_ways = (aux >> 13) & 0xf;
+		type = "L210";
+		break;
+	default:
+		/* Assume unknown chips have 8 ways */
+		l2x0_ways = 8;
+		type = "L2x0 series";
+		break;
+	}
+
+	l2x0_way_mask = (1 << l2x0_ways) - 1;
+
+	/*
+	 * L2 cache Size =  Way size * Number of ways
+	 */
+	way_size = (aux & L2X0_AUX_CTRL_WAY_SIZE_MASK) >> 17;
+	way_size = SZ_1K << (way_size + 3);
+	l2x0_size = l2x0_ways * way_size;
+	l2x0_sets = way_size / CACHE_LINE_SIZE;
+
+	/*
+	 * Check if l2x0 controller is already enabled.
+	 * If you are booting from non-secure mode
+	 * accessing the below registers will fault.
+	 */
+	if (!(readl_relaxed(l2x0_base + L2X0_CTRL) & 1)) {
+
+		/* l2x0 controller is disabled */
+		writel_relaxed(aux, l2x0_base + L2X0_AUX_CTRL);
+
+		outer_inv_all();
+
+		/* enable L2X0 */
+		writel_relaxed(1, l2x0_base + L2X0_CTRL);
+	}
+	//printk(KERN_INFO "%s cache controller enabled\n", type);
+	
+}
+
+void rk30_l2_cache_init_pm(void)
+{
+#ifdef CONFIG_CACHE_L2X0
+	writel_relaxed(L2_LATENCY(1, 1, 1), RK30_L2C_BASE + L2X0_TAG_LATENCY_CTRL);
+	writel_relaxed(l2_data_latency_ctrl, RK30_L2C_BASE + L2X0_DATA_LATENCY_CTRL);
+
+	/* L2X0 Prefetch Control */
+	writel_relaxed(0x70000003, RK30_L2C_BASE + L2X0_PREFETCH_CTRL);
+
+	/* L2X0 Power Control */
+	writel_relaxed(L2X0_DYNAMIC_CLK_GATING_EN | L2X0_STNDBY_MODE_EN, RK30_L2C_BASE + L2X0_POWER_CTRL);
+
+	l2x0_init_pm(RK30_L2C_BASE, l2_aux_ctrl, l2_aux_ctrl_mask);
+#endif
+}
 static int boot_mode;
-
-static const char *boot_flag_name(u32 flag)
-{
-	flag -= SYS_KERNRL_REBOOT_FLAG;
-	switch (flag) {
-	case BOOT_NORMAL: return "NORMAL";
-	case BOOT_LOADER: return "LOADER";
-	case BOOT_MASKROM: return "MASKROM";
-	case BOOT_RECOVER: return "RECOVER";
-	case BOOT_NORECOVER: return "NORECOVER";
-	case BOOT_SECONDOS: return "SECONDOS";
-	case BOOT_WIPEDATA: return "WIPEDATA";
-	case BOOT_WIPEALL: return "WIPEALL";
-	case BOOT_CHECKIMG: return "CHECKIMG";
-	case BOOT_FASTBOOT: return "FASTBOOT";
-	default: return "";
-	}
-}
-
-static const char *boot_mode_name(u32 mode)
-{
-	switch (mode) {
-	case BOOT_MODE_NORMAL: return "NORMAL";
-	case BOOT_MODE_FACTORY2: return "FACTORY2";
-	case BOOT_MODE_RECOVERY: return "RECOVERY";
-	case BOOT_MODE_CHARGE: return "CHARGE";
-	case BOOT_MODE_POWER_TEST: return "POWER_TEST";
-	case BOOT_MODE_OFFMODE_CHARGING: return "OFFMODE_CHARGING";
-	case BOOT_MODE_REBOOT: return "REBOOT";
-	case BOOT_MODE_PANIC: return "PANIC";
-	case BOOT_MODE_WATCHDOG: return "WATCHDOG";
-	default: return "";
-	}
-}
 
 static void __init rk30_boot_mode_init(void)
 {
@@ -162,6 +235,10 @@ static void __init rk30_boot_mode_init(void)
 		printk("Boot mode: %s (%d) flag: %s (0x%08x)\n", boot_mode_name(boot_mode), boot_mode, boot_flag_name(boot_flag), boot_flag);
 #ifdef CONFIG_RK29_WATCHDOG
 	writel_relaxed(BOOT_MODE_WATCHDOG, RK30_PMU_BASE + PMU_SYS_REG1);
+#ifdef CONFIG_ARCH_RK319X
+	/* workaround for RK319X watchdog bug */
+	writel_relaxed(0x12345678, RK30_GRF_BASE + GRF_OS_REG0);
+#endif
 #endif
 }
 
@@ -182,7 +259,7 @@ void __init rk30_init_irq(void)
 
 static void usb_uart_init(void)
 {
-#if defined(CONFIG_ARCH_RK3188) && (CONFIG_RK_DEBUG_UART == 2)
+#if (defined(CONFIG_ARCH_RK3188) || defined(CONFIG_ARCH_RK319X)) && (CONFIG_RK_DEBUG_UART == 2)
 #ifdef CONFIG_RK_USB_UART
 	if (!(readl_relaxed(RK30_GRF_BASE + GRF_SOC_STATUS0) & (1 << 13))) { //detect id
 		writel_relaxed((0x0300 << 16), RK30_GRF_BASE + GRF_UOC0_CON0);
@@ -214,30 +291,37 @@ void __init rk30_map_io(void)
 	clk_disable_unused();
 	rk30_iomux_init();
 	rk30_boot_mode_init();
+#if defined(CONFIG_EMMC_IO_3_3V)
+	grf_set_io_power_domain_voltage(IO_PD_FLASH, IO_PD_VOLTAGE_3_3V);
+#endif
 }
 
 static __init u32 rk30_get_ddr_size(void)
 {
 	u32 size;
-	u32 v[3], a[3];
+	u32 v[4], a[4];
 	u32 pgtbl = PAGE_OFFSET + TEXT_OFFSET - 0x4000;
 	u32 flag = PMD_TYPE_SECT | PMD_SECT_XN | PMD_SECT_AP_WRITE | PMD_SECT_AP_READ;
 
 	a[0] = pgtbl + (((u32)RK30_CPU_AXI_BUS_BASE >> 20) << 2);
 	a[1] = pgtbl + (((u32)RK30_DDR_PUBL_BASE >> 20) << 2);
 	a[2] = pgtbl + (((u32)RK30_GRF_BASE >> 20) << 2);
+	a[3] = pgtbl + (((u32)RK30_PMU_BASE >> 20) << 2);
 	v[0] = readl_relaxed(a[0]);
 	v[1] = readl_relaxed(a[1]);
 	v[2] = readl_relaxed(a[2]);
+	v[3] = readl_relaxed(a[3]);
 	writel_relaxed(flag | ((RK30_CPU_AXI_BUS_PHYS >> 20) << 20), a[0]);
 	writel_relaxed(flag | ((RK30_DDR_PUBL_PHYS >> 20) << 20), a[1]);
 	writel_relaxed(flag | ((RK30_GRF_PHYS >> 20) << 20), a[2]);
+	writel_relaxed(flag | ((RK30_PMU_PHYS >> 20) << 20), a[3]);
 
 	size = ddr_get_cap();
 
 	writel_relaxed(v[0], a[0]);
 	writel_relaxed(v[1], a[1]);
 	writel_relaxed(v[2], a[2]);
+	writel_relaxed(v[3], a[3]);
 
 	return size;
 }

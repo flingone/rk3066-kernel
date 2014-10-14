@@ -27,31 +27,36 @@ extern char __sram_data_start, __ssram_data, __esram_data;
 #define SRAM_CACHED	RK30_IMEM_BASE
 #define SRAM_PHYS	RK30_IMEM_PHYS
 #define SRAM_SIZE	RK30_IMEM_SIZE
-#elif defined(CONFIG_ARCH_RK2928)
+#define SRAM_CACHED_PHYS	0
+#elif defined(CONFIG_ARCH_RK2928) || defined(CONFIG_ARCH_RK3026)
 #define SRAM_NONCACHED	RK2928_IMEM_NONCACHED
 #define SRAM_CACHED	RK2928_IMEM_BASE
 #define SRAM_PHYS	RK2928_IMEM_PHYS
 #define SRAM_SIZE	RK2928_IMEM_SIZE
+#define SRAM_CACHED_PHYS	0
 #elif defined(CONFIG_ARCH_RK3188)
 #define SRAM_NONCACHED	RK30_IMEM_NONCACHED
 #define SRAM_CACHED	RK30_IMEM_BASE
 #define SRAM_PHYS	RK30_IMEM_PHYS
 #define SRAM_SIZE	RK3188_IMEM_SIZE
+#define SRAM_CACHED_PHYS	0
 #endif
 
 static struct map_desc sram_io_desc[] __initdata = {
 	{
 		.virtual	= (unsigned long) SRAM_CACHED,
-		.pfn		= __phys_to_pfn(0x0),
+		.pfn		= __phys_to_pfn(SRAM_CACHED_PHYS),
 		.length		= SZ_1M,
 		.type		= MT_MEMORY,
 	},
+#ifdef SRAM_NONCACHED
 	{
 		.virtual	= (unsigned long) SRAM_NONCACHED,
 		.pfn		= __phys_to_pfn(SRAM_PHYS),
 		.length		= SRAM_SIZE,
 		.type		= MT_MEMORY_NONCACHED,
 	},
+#endif
 };
 
 #define SRAM_LOG_BUF_LEN 64
@@ -79,8 +84,9 @@ void __sramfunc sram_log_reset(void)
 }
 
 #include <linux/ctype.h>
-void __init sram_log_dump(void)
+static void __init sram_log_dump(void)
 {
+#ifdef SRAM_NONCACHED
 	int i;
 
 	if ((u32)SRAM_DATA_END & SRAM_LOG_BUF_LEN)
@@ -99,6 +105,7 @@ void __init sram_log_dump(void)
 			printk(KERN_CONT " ");
 	}
 	printk(KERN_CONT "\n");
+#endif
 }
 
 int __init rk29_sram_init(void)
@@ -179,12 +186,15 @@ void __sramfunc sram_printhex(unsigned int hex)
 }
 
 struct sram_gpio_data __sramdata pmic_sleep,pmic_vsel;
-#if defined(CONFIG_ARCH_RK2928)
+#if defined(CONFIG_ARCH_RK2928) || defined(CONFIG_ARCH_RK3026)
 static void __iomem *gpio_base[] = {RK2928_GPIO0_BASE, RK2928_GPIO1_BASE, RK2928_GPIO2_BASE, RK2928_GPIO3_BASE};
 #elif defined(CONFIG_ARCH_RK3066B) || defined(CONFIG_ARCH_RK3188)
 static void __iomem *gpio_base[] = {RK30_GPIO0_BASE, RK30_GPIO1_BASE, RK30_GPIO2_BASE, RK30_GPIO3_BASE};
 #elif defined(CONFIG_ARCH_RK30)
-static void __iomem *gpio_base[] = {RK30_GPIO0_BASE, RK30_GPIO1_BASE, RK30_GPIO2_BASE, RK30_GPIO3_BASE, RK30_GPIO4_BASE, RK30_GPIO6_BASE};
+static void __iomem *gpio_base[] = {RK30_GPIO0_BASE, RK30_GPIO1_BASE, RK30_GPIO2_BASE, RK30_GPIO3_BASE, 
+				RK30_GPIO4_BASE, 0, RK30_GPIO6_BASE};
+#elif defined(CONFIG_ARCH_RK319X)
+static void __iomem *gpio_base[] = {RK319X_GPIO0_BASE, RK319X_GPIO1_BASE, RK319X_GPIO2_BASE, RK319X_GPIO3_BASE, RK319X_GPIO4_BASE};
 #endif
 
 int sram_gpio_init(int gpio, struct sram_gpio_data *data)
@@ -198,6 +208,9 @@ int sram_gpio_init(int gpio, struct sram_gpio_data *data)
                return -EINVAL;
 
        data->base = gpio_base[index/NUM_GROUP];
+       if(data->base == 0)
+	       return -EINVAL;
+
        data->offset = index%NUM_GROUP;
 
        return 0;

@@ -440,6 +440,11 @@ int msdos_partition(struct parsed_partitions *state)
 	struct partition *p;
 	struct fat_boot_sector *fb;
 	int slot;
+#if defined(CONFIG_EMMC_RK)||defined(CONFIG_SDMMC2_RK29)
+	//if card is emmc(flag:2 is set in 'drivers/mmc/card/block.c'), return false
+	if(state->bdev->bd_disk->flags & 2)
+		return 0;
+#endif
 
 	data = read_part_sector(state, 0, &sect);
 	if (!data)
@@ -458,7 +463,7 @@ int msdos_partition(struct parsed_partitions *state)
 #if defined(CONFIG_SDMMC_RK29) && !defined(CONFIG_SDMMC_RK29_OLD) 
     if(179 == MAJOR(bdev->bd_dev))
     {
-	    printk(KERN_INFO "\n%s..%d... ==== Begin to parse sdcard-partition.  [mmc0]\n",__FUNCTION__, __LINE__);
+	    printk(KERN_INFO "\n%s..%d... ==== Begin to parse sdcard-partition.  [%s]\n",__FUNCTION__, __LINE__, bdev->bd_disk->disk_name);
 	}
 #endif
 
@@ -474,7 +479,7 @@ int msdos_partition(struct parsed_partitions *state)
 #if defined(CONFIG_SDMMC_RK29) && !defined(CONFIG_SDMMC_RK29_OLD) 
 		    if(179 == MAJOR(bdev->bd_dev))
 		    {
-			    printk(KERN_INFO "%s..%d... ==== The sdcard has not MBR.  [mmc0]\n",__FUNCTION__, __LINE__);
+			    printk(KERN_INFO "%s..%d... ==== The sdcard has not MBR.  [%s]\n",__FUNCTION__, __LINE__, bdev->bd_disk->disk_name);
 			}
 #endif
 			/*
@@ -490,7 +495,7 @@ int msdos_partition(struct parsed_partitions *state)
 #if defined(CONFIG_SDMMC_RK29) && !defined(CONFIG_SDMMC_RK29_OLD) 
 				if(179 == MAJOR(bdev->bd_dev))
 				{
-				    printk(KERN_INFO "%s..%d... ==== The DBR(slot=%d) is valid. [mmc0]\n",__FUNCTION__, __LINE__, slot);
+				    printk(KERN_INFO "%s..%d... ==== The DBR(slot=%d) is valid. [%s]\n",__FUNCTION__, __LINE__, slot, bdev->bd_disk->disk_name);
 				}
 #endif
 				return 1;
@@ -499,7 +504,7 @@ int msdos_partition(struct parsed_partitions *state)
 #if defined(CONFIG_SDMMC_RK29) && !defined(CONFIG_SDMMC_RK29_OLD) 
 				if(179 == MAJOR(bdev->bd_dev))
 				{
-				    printk(KERN_INFO "%s..%d... ==== The DBR is invalid. [mmc0]\n",__FUNCTION__, __LINE__);
+				    printk(KERN_INFO "%s..%d... ==== The DBR is invalid. [%s]\n",__FUNCTION__, __LINE__, bdev->bd_disk->disk_name);
 				}
 #endif
 				return 0;
@@ -527,7 +532,7 @@ int msdos_partition(struct parsed_partitions *state)
 #if defined(CONFIG_SDMMC_RK29) && !defined(CONFIG_SDMMC_RK29_OLD) 
     if(179 == MAJOR(bdev->bd_dev))
     {
-        printk(KERN_INFO "%s..%d... ==== The sdcard has MBR. [mmc0]\n", __FUNCTION__, __LINE__);
+        printk(KERN_INFO "%s..%d... ==== The sdcard has MBR. [%s]\n", __FUNCTION__, __LINE__, bdev->bd_disk->disk_name);
     }
 #endif    
 	state->next = 5;
@@ -538,9 +543,9 @@ int msdos_partition(struct parsed_partitions *state)
 			continue;
 #if defined(CONFIG_SDMMC_RK29) && !defined(CONFIG_SDMMC_RK29_OLD) 
 	    if(179 == MAJOR(bdev->bd_dev))
-	    {
-		    printk(KERN_INFO "%s..%d... ==== partition-%d, size=%luKB  [mmc0]\n",\
-		        __FUNCTION__, __LINE__, slot, size/2);
+	    { 
+		    printk(KERN_INFO "%s..%d... ==== partition-%d, size=%lldMB.  [%s]\n",\
+		        __FUNCTION__, __LINE__, slot, (size>>11),bdev->bd_disk->disk_name);
 		}
 #endif	
 		if (is_extended_partition(p)) {
@@ -555,7 +560,7 @@ int msdos_partition(struct parsed_partitions *state)
 #if defined(CONFIG_SDMMC_RK29) && !defined(CONFIG_SDMMC_RK29_OLD) 			
             if(179 == MAJOR(bdev->bd_dev))
             {
-			    printk(KERN_INFO "%s...%d... ==== extend partition-%d....[mmc0]\n",__FUNCTION__, __LINE__, slot);
+			    printk(KERN_INFO "%s...%d... ==== extend partition-%d....[%s]\n",__FUNCTION__, __LINE__, slot, bdev->bd_disk->disk_name);
 			}
 #endif			
 			put_partition(state, slot, start, n);
@@ -568,7 +573,7 @@ int msdos_partition(struct parsed_partitions *state)
 #if defined(CONFIG_SDMMC_RK29) && !defined(CONFIG_SDMMC_RK29_OLD) 
 		if(179 == MAJOR(bdev->bd_dev))
 		{
-		    printk(KERN_INFO "%s..%d... ==== main partition-%d....[mmc0]\n",__FUNCTION__, __LINE__, slot);
+		    printk(KERN_INFO "%s..%d... ==== main partition-%d....[%s]\n",__FUNCTION__, __LINE__, slot, bdev->bd_disk->disk_name);
 		}
 #endif		
 		put_partition(state, slot, start, size);

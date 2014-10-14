@@ -88,7 +88,8 @@ config USB20_OTG_EN
 config DWC_OTG_DEBUG
 	bool "DWC_OTG debug messages"
 	depends on USB11_HOST || USB20_HOST || USB20_OTG
-
+config NO_USB_CHARGER_DETECT
+	bool "No need detect USB chatger"
 config DWC_REMOTE_WAKEUP
 	bool "remote wakeup support in DWC_OTG controller"
 	depends on USB11_HOST || USB20_HOST || USB20_OTG

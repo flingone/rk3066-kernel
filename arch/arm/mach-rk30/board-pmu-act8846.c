@@ -511,20 +511,23 @@ void __sramfunc board_pmu_act8846_resume(void)
 {
 	#ifdef CONFIG_CLK_SWITCH_TO_32K
  	sram_gpio_set_value(pmic_sleep, GPIO_LOW);  
-	sram_32k_udelay(1000);
+	sram_32k_udelay(10000);
 	#endif
 }
 void __sramfunc board_act8846_set_suspend_vol(void)
 {	
 #ifdef CONFIG_ACT8846_SUPPORT_RESET
+	if(pmic_is_act8846()){
 	sram_gpio_set_value(pmic_vsel, GPIO_HIGH); 
+	}
 #endif
 }
 void __sramfunc board_act8846_set_resume_vol(void)
 {
 #ifdef CONFIG_ACT8846_SUPPORT_RESET
+	if(pmic_is_act8846()){
 	sram_gpio_set_value(pmic_vsel, GPIO_LOW);  
-	sram_32k_udelay(1000);
+	}
 #endif
 }
 

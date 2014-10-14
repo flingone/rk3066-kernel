@@ -168,6 +168,26 @@ source "drivers/usb/gadget/Kconfig"
 
 source "drivers/usb/otg/Kconfig"
 
+menu "Dwc Otg Support"
+
+choice
+prompt "Dwc Otg Driver Version Select"
+config DWC_OTG_274
+        bool "DWC_OTG_274"
+        
+config DWC_OTG_310
+        bool "DWC_OTG_310"
+        depends on ARCH_RK3188 || ARCH_RK319X
+
+endchoice
+
+if DWC_OTG_310
+source "drivers/usb/dwc_otg_310/Kconfig"
+endif # DWC_OTG_310 
+
+if DWC_OTG_274
 source "drivers/usb/dwc_otg/Kconfig"
+endif # DWC_OTG_274 
+endmenu
 
 endif # USB_SUPPORT

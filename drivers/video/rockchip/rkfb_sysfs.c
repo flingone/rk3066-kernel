@@ -40,12 +40,11 @@ static ssize_t show_screen_info(struct device *dev,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct rk_lcdc_device_driver * dev_drv = 
 		(struct rk_lcdc_device_driver * )fbi->par;
-	rk_screen * screen = dev_drv->screen0;
+	rk_screen * screen = dev_drv->cur_screen;
 	int fps;
 	u64 ft = (u64)(screen->upper_margin + screen->lower_margin + screen->y_res +screen->vsync_len)*
-		(screen->left_margin + screen->right_margin + screen->x_res + screen->hsync_len)*
-		(dev_drv->pixclock);       // one frame time ,(pico seconds)
-	fps = div64_u64(1000000000000llu,ft);
+		(screen->left_margin + screen->right_margin + screen->x_res + screen->hsync_len);       // one frame time ,(pico seconds)
+	fps = div64_u64(screen->pixclock,ft);
 	return snprintf(buf, PAGE_SIZE,"xres:%d\nyres:%d\nfps:%d\n",
 		screen->x_res,screen->y_res,fps);
 }
@@ -289,12 +288,6 @@ static ssize_t set_dsp_lut(struct device *dev,struct device_attribute *attr,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct rk_lcdc_device_driver * dev_drv = 
 		(struct rk_lcdc_device_driver * )fbi->par;
-		
-	#if defined(CONFIG_DUAL_LCDC_DUAL_DISP_IN_KERNEL)
-	struct rk_fb_inf *inf = dev_get_drvdata(fbi->device);
-	struct fb_info * info2;
-	struct rk_lcdc_device_driver * dev_drv1;
-	#endif
 	
 	for(i=0;i<256;i++)
 	{
@@ -327,24 +320,23 @@ static ssize_t set_dsp_lut(struct device *dev,struct device_attribute *attr,
 	}
 #endif
 	dev_drv->set_dsp_lut(dev_drv,dsp_lut);
-	#if defined(CONFIG_DUAL_LCDC_DUAL_DISP_IN_KERNEL)
-	if(inf->num_lcdc >= 2) {
-		info2 = inf->fb[inf->num_fb>>1];
-		dev_drv1  = (struct rk_lcdc_device_driver * )info2->par;
-		dev_drv1->set_dsp_lut(dev_drv1,dsp_lut);
-	}
-	#endif
+
 	return count;
 	
 }
 
+//$_rbox_$_modify_$_zhengyang modified for box display system
 static ssize_t show_scale(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct rk_lcdc_device_driver * dev_drv = 
 		(struct rk_lcdc_device_driver * )fbi->par;
-	return snprintf(buf, PAGE_SIZE, "xscale=%d yscale=%d\n", dev_drv->x_scale, dev_drv->y_scale);
+	return snprintf(buf, PAGE_SIZE, "xscale=%d yscale=%d\nleft=%d top=%d right=%d bottom=%d\n", 
+		(dev_drv->overscan.left + dev_drv->overscan.right)/2, 
+		(dev_drv->overscan.top + dev_drv->overscan.bottom)/2,
+		dev_drv->overscan.left, dev_drv->overscan.top, 
+		dev_drv->overscan.right, dev_drv->overscan.bottom);
 }
 
 static ssize_t set_scale(struct device *dev,struct device_attribute *attr,
@@ -353,27 +345,69 @@ static ssize_t set_scale(struct device *dev,struct device_attribute *attr,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct rk_lcdc_device_driver * dev_drv = (struct rk_lcdc_device_driver * )fbi->par;
 	struct fb_var_screeninfo *var = NULL;
-	u16 xpos, ypos, xsize, ysize;
+	u32 xpos, ypos, xsize, ysize;
 	u32 scale;
 	
-	if(!strncmp(buf, "xscale", 6)) {
+	if(!strncmp(buf, "overscan", 8)) {
+		sscanf(buf, "overscan %d,%d,%d,%d", &xpos, &ypos, &xsize, &ysize);
+		if(xpos > 0 && xpos <= 100) {
+			dev_drv->overscan.left = xpos;
+		}
+		if(ypos > 0 && ypos <= 100) {
+			dev_drv->overscan.top = ypos;
+		}
+		if(xsize > 0 && xsize <= 100) {
+			dev_drv->overscan.right = xsize;
+		}
+		if(ysize > 0 && ysize <= 100) {
+			dev_drv->overscan.bottom = ysize;
+		}
+	}
+	else if(!strncmp(buf, "left", 4)) {
+		sscanf(buf, "left=%d", &scale);
+		if(scale > 0 && scale <= 100) {
+			dev_drv->overscan.left = scale;
+		}
+	} else if(!strncmp(buf, "top", 3)) {
+		sscanf(buf, "top=%d", &scale);
+		if(scale > 0 && scale <= 100) {
+			dev_drv->overscan.top = scale;
+		}
+	} else if(!strncmp(buf, "right", 5)) {
+		sscanf(buf, "right=%d", &scale);
+		if(scale > 0 && scale <= 100) {
+			dev_drv->overscan.right = scale;
+		}
+	} else if(!strncmp(buf, "bottom", 6)) {
+		sscanf(buf, "bottom=%d", &scale);
+		if(scale > 0 && scale <= 100) {
+			dev_drv->overscan.bottom = scale;
+		}
+	} else if(!strncmp(buf, "xscale", 6)) {
 		sscanf(buf, "xscale=%d", &scale);
-		if(scale >= 0 && scale <= 100)
-			dev_drv->x_scale = scale;
+		if(scale > 0 && scale <= 100) {
+			dev_drv->overscan.left = scale;
+			dev_drv->overscan.right = scale;
+		}
 	}
 	else if(!strncmp(buf, "yscale", 6)) {
 		sscanf(buf, "yscale=%d", &scale);
-		if(scale >= 0 && scale <= 100)
-			dev_drv->y_scale = scale;
+		if(scale > 0 && scale <= 100) {
+			dev_drv->overscan.top = scale;
+			dev_drv->overscan.bottom = scale;
+		}
 	}
 	else {
 		sscanf(buf, "%d", &scale);
-		if(scale >= 0 && scale <= 100) {
-			dev_drv->x_scale = scale;
-			dev_drv->y_scale = scale;
+		if(scale > 0 && scale <= 100) {
+			dev_drv->overscan.left = scale;
+			dev_drv->overscan.right = scale;
+			dev_drv->overscan.top = scale;
+			dev_drv->overscan.bottom = scale;
 		}
 	}
-//	printk("scale rate x %d y %d\n", dev_drv->x_scale, dev_drv->y_scale);
+//	printk("scale rate left %d right %d top %d bottom %d\n", 
+//		dev_drv->overscan.left, dev_drv->overscan.right, dev_drv->overscan.top, dev_drv->overscan.bottom);
 #if 0	
 	var = &fbi->var;
 	xpos = (dev_drv->cur_screen->x_res - dev_drv->cur_screen->x_res*dev_drv->x_scale/100)>>1;
@@ -398,8 +432,9 @@ static ssize_t show_lcdc_id(struct device *dev,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct rk_lcdc_device_driver * dev_drv = 
 		(struct rk_lcdc_device_driver * )fbi->par;
-	return snprintf(buf, PAGE_SIZE, "%d\n", dev_drv->id);
+	return snprintf(buf, PAGE_SIZE, "%d\n", (dev_drv->screen_ctr_info->prop == PRMRY)?0:1);
 }
+//$_rbox_$_modify_$end
 
 static struct device_attribute rkfb_attrs[] = {
 	__ATTR(phys_addr, S_IRUGO, show_phys, NULL),
@@ -412,8 +447,10 @@ static struct device_attribute rkfb_attrs[] = {
 	__ATTR(fps, S_IRUGO | S_IWUSR, show_fps, set_fps),
 	__ATTR(map, S_IRUGO | S_IWUSR, show_fb_win_map, set_fb_win_map),
 	__ATTR(dsp_lut, S_IRUGO | S_IWUSR, show_dsp_lut, set_dsp_lut),
+	//$_rbox_$_modify_$_zhengyang modified for box display system
 	__ATTR(scale, S_IRUGO | S_IWUSR, show_scale, set_scale),
 	__ATTR(lcdcid, S_IRUGO | S_IWUSR, show_lcdc_id, NULL),
+	//$_rbox_$_modify_$end
 };
 
 int rkfb_create_sysfs(struct fb_info *fbi)

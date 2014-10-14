@@ -36,23 +36,25 @@ choice
 
 	  	  If you say N, all options in this submenu will be skipped and disabled.
 
-	config ETH_MAC_FROM_WIFI_MAC
-		bool "Ethernet mac from Wifi mac"
-		---help---
-	  	  Say Y here if you want to set Wifi mac to Ethernet mac,
-	  	  when the Wifi device exsits.
-	  	  This option alone does not add any kernel code.
-
-	  	  If you say N, all options in this submenu will be skipped and disabled.
-
-	config ETH_MAC_FROM_SECURE_CHIP
-		bool "Ethernet mac from Secure chip"
-		---help---
-	  	  Say Y here if you want to set Secure chip mac to Ethernet mac,
-	  	  when the Secure chip exsits and mac has been written in.
-	  	  This option alone does not add any kernel code.
-
-	  	  If you say N, all options in this submenu will be skipped and disabled.
-
 endchoice
+
+config  PHY_PORT_NUM
+        int "phy port number selected (More than one port on Switch)"
+        depends on RK29_VMAC
+        default 0
+        help
+                 0:phy dev 0:00
+                 1:phy dev 0:01
+                 2:phy dev 0:02
+                      ---More---
+
+
+config RK_PHY_REG_SYS
+        tristate "RK ethernet PHY reg sys file support"
+        depends on RK29_VMAC
+        select MII
+        select PHYLIB
+        select CRC32
+        help
+          See and Set phy reg on sys file
 

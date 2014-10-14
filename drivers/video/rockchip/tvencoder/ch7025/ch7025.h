@@ -31,7 +31,6 @@ struct ch7025_monspecs {
 	struct fb_videomode			*mode;
 	struct list_head			modelist;
 	unsigned int 				mode_set;
-	unsigned int				suspend;
 };
 
 struct ch7025 {

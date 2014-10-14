@@ -10,13 +10,20 @@ menuconfig GSENSOR_DEVICE
 
 if GSENSOR_DEVICE
 config GS_MMA8452
-  bool "gsensor mma8452"
+  bool "gsensor mma8451/mma8452/mma8453/mma8653"
 	help	 
 	  To have support for your specific gsesnor you will have to
 	  select the proper drivers which depend on this option.
 
 config GS_KXTIK
-  bool "gsensor kxtik"
+    bool "gsensor kxtik"
+	help
+	  To have support for your specific gsesnor you will have to
+	  select the proper drivers which depend on this option.
+
+
+config GS_KXTJ9
+  bool "gsensor kxtj9"
   help
     To have support for your specific gsesnor you will have to
     select the proper drivers which depend on this option.
@@ -35,6 +42,18 @@ config GS_MMA7660
 
 config GS_MXC6225
 	bool "gsensor mxc6225"
+	help
+	To have support for your sepcific gsensor you will have to
+	select het proper drivers which depend on this option.
+
+config GS_DMT10
+	bool "gsensor dmard10"
+	help
+	To have support for your sepcific gsensor you will have to
+	select het proper drivers which depend on this option.
+
+config GS_LSM303D
+	bool "gsensor lsm303d"
 	help
 	To have support for your sepcific gsensor you will have to
 	select het proper drivers which depend on this option.

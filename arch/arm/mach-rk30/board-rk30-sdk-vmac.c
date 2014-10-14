@@ -1,4 +1,4 @@
-
+static rmii_extclk_sel = 0;
 static int rk30_vmac_register_set(void)
 {
 	int value;
@@ -103,17 +103,23 @@ static int rk30_rmii_power_control(int enable)
 	return 0;
 }
 
-#define BIT_EMAC_SPEED     (1 << 1)
-#define grf_readl(offset)	readl(RK30_GRF_BASE + offset)
-#define grf_writel(v, offset)	writel(v, RK30_GRF_BASE + offset)
-static int rk30_vmac_speed_switch(int speed)
+#define BIT_EMAC_SPEED      (1 << 1)
+static int rk29_vmac_speed_switch(int speed)
 {
-//	printk("%s--speed=%d\n", __FUNCTION__, speed);
+	//printk("%s--speed=%d\n", __FUNCTION__, speed);
 	if (10 == speed) {
-            grf_writel((grf_readl(GRF_SOC_CON1) | (2<<16)) & (~BIT_EMAC_SPEED), GRF_SOC_CON1);
-        } else {
-            grf_writel(grf_readl(GRF_SOC_CON1) | (2<<16) | BIT_EMAC_SPEED, GRF_SOC_CON1);
-        }
+	    writel_relaxed((readl_relaxed(RK30_GRF_BASE + GRF_SOC_CON1) | (2<<16)) & (~BIT_EMAC_SPEED), RK30_GRF_BASE + GRF_SOC_CON1);
+	} else {
+	    writel_relaxed(readl_relaxed(RK30_GRF_BASE + GRF_SOC_CON1) | (2<<16) | ( BIT_EMAC_SPEED), RK30_GRF_BASE + GRF_SOC_CON1);
+	}
+}
+
+static int rk30_rmii_extclk_sel(void)
+{
+#ifdef RMII_EXT_CLK
+    rmii_extclk_sel = 1; //0:select internal divider clock, 1:select external input clock
+#endif 
+    return rmii_extclk_sel; 
 }
 
 struct rk29_vmac_platform_data board_vmac_data = {
@@ -121,5 +127,6 @@ struct rk29_vmac_platform_data board_vmac_data = {
 	.rmii_io_init = rk30_rmii_io_init,
 	.rmii_io_deinit = rk30_rmii_io_deinit,
 	.rmii_power_control = rk30_rmii_power_control,
-	.rmii_speed_switch = rk30_vmac_speed_switch,
+	.rmii_speed_switch = rk29_vmac_speed_switch,
+   .rmii_extclk_sel = rk30_rmii_extclk_sel,
 };

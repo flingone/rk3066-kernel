@@ -174,12 +174,14 @@ int it66121_config_video(struct hdmi *hdmi, struct hdmi_video *vpara)
 	struct it66121 *it66121 = hdmi->property->priv;
 	VIDEOPCLKLEVEL level ;
     struct fb_videomode *vmode;
+    struct hdmi_video_timing *vtiming;
 	char bHDMIMode, pixelrep, bInputColorMode, bOutputColorMode, aspec, Colorimetry;
 	
-	vmode = (struct fb_videomode*)hdmi_vic_to_videomode(vpara->vic);
-	if(vmode == NULL)
+	vtiming = (struct hdmi_video_timing*) hdmi_vic2timing(vpara->vic);
+//	vmode = (struct fb_videomode*)hdmi_vic_to_videomode(vpara->vic);
+	if(vtiming == NULL)
 		return HDMI_ERROR_FALSE;
-	
+	vmode = &(vtiming->mode);
 	it66121->tmdsclk = vmode->pixclock;
 	bHDMIMode = hdmi->edid.sink_hdmi;
 	
@@ -193,14 +195,8 @@ int it66121_config_video(struct hdmi *hdmi, struct hdmi_video *vpara)
     	aspec = HDMI_4x3;
     	Colorimetry = HDMI_ITU601;
     }
-    
-    if(vmode->xres == 1440)
-    	pixelrep = 1;
-    else if(vmode->xres == 2880)
-    	pixelrep = 3;
-    else
-    	pixelrep = 0;
-	bInputColorMode = vpara->color_input & 0xFF;
+    pixelrep = vtiming->pixelrepeat - 1;
+
 	switch(vpara->color_output)
     {
 	    case HDMI_COLOR_YCbCr444:
@@ -209,7 +205,8 @@ int it66121_config_video(struct hdmi *hdmi, struct hdmi_video *vpara)
 	    case HDMI_COLOR_YCbCr422:	
 	        bOutputColorMode = F_MODE_YUV422 ;
 	        break ;
-	    case HDMI_COLOR_RGB:
+	    case HDMI_COLOR_RGB_0_255:
+	    case HDMI_COLOR_RGB_16_235:
 	        bOutputColorMode = F_MODE_RGB444 ;
 	        break ;	
 	    default:
@@ -236,12 +233,23 @@ int it66121_config_video(struct hdmi *hdmi, struct hdmi_video *vpara)
 	HDMITX_DEBUG_PRINTF(("OutputColorDepth = %02X\n",(int)OutputColorDepth)) ;
     setHDMITX_ColorDepthPhase(OutputColorDepth,0);
 #endif
-
+	if(vtiming->interface == OUT_P888) {
+		InstanceData.bInputVideoSignalType = 0;
+		bInputColorMode = vpara->color_input & 0xFF;
+	}
+	else if(vtiming->interface == OUT_CCIR656_M0 || vtiming->interface == OUT_CCIR656_M1 || vtiming->interface == OUT_CCIR656_M2) {
+		InstanceData.bInputVideoSignalType = T_MODE_CCIR656;
+		bInputColorMode = F_MODE_YUV422;
+	}
+	if(Colorimetry == HDMI_ITU709)
+		bInputColorMode |= F_VIDMODE_ITU709 | F_VIDMODE_0_255;
+	else
+		bInputColorMode |= F_VIDMODE_ITU601 | F_VIDMODE_0_255;
 	setHDMITX_VideoSignalType(InstanceData.bInputVideoSignalType);
     #ifdef SUPPORT_SYNCEMBEDDED
 	if(InstanceData.bInputVideoSignalType & T_MODE_SYNCEMB)
 	{
-	    setHDMITX_SyncEmbeddedByVIC(VIC,InstanceData.bInputVideoSignalType);
+	    setHDMITX_SyncEmbeddedByVIC(vpara->vic,InstanceData.bInputVideoSignalType);
 	}
     #endif
 
@@ -272,7 +280,7 @@ int it66121_config_audio(struct hdmi *hdmi, struct hdmi_audio *audio)
     unsigned long ulAudioSampleFS;
 	unsigned char word_length;
 	unsigned char audio_type;
-	
+
 	switch(audio->rate)
 	{
 		case HDMI_AUDIO_FS_32000:

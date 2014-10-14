@@ -24,13 +24,13 @@
 #include <linux/workqueue.h>
 #include <linux/adc.h>
 #include <asm/gpio.h>
-#include <mach/remotectl.h>
+#include <plat/remotectl.h>
 #include <mach/iomux.h>
 #include <linux/wakelock.h>
 #include <linux/suspend.h>
 
 
-#if 1
+#if 0
 #define remotectl_dbg(bdata, format, arg...)		\
 	dev_printk(KERN_INFO , &bdata->input->dev , format , ## arg)
 #else
@@ -146,11 +146,71 @@ static struct rkxx_remote_key_table remote_key_table_df[] = {
     {0x40, KEY_SEARCH},     //search
 };
 
+static struct rkxx_remote_key_table remote_key_table_sunchip_202[] = {
+
+   {0x60, KEY_HOME},     // home
+   {0x02, KEY_BACK}, 		// back
+   {0x20, KEY_MENU},			// menu
+   {0xAA, KEY_REPLY},		// ok
+
+    {0x62, KEY_UP},	
+    {0x68, KEY_DOWN},
+    {0xE2, KEY_LEFT},
+    {0xA8, KEY_RIGHT},
+    
+    {0x28, KEY_VOLUMEDOWN},
+    {0x08, KEY_VOLUMEUP},
+    {0x10, KEY_MUTE},       //mute
+    
+    {0x18, KEY_POWER},     //power (RED)
+    {0x40, KEY_POWER},     //power (GREEN)
+    
+    {0x6A, KEY_VOLUMEDOWN},	// function RED
+    {0xEA, KEY_VOLUMEDOWN},	// function GREEN
+    {0xF8, KEY_VOLUMEDOWN},	// function YELLOW
+    {0xDA, KEY_VOLUMEDOWN},	// function BLUE
+    
+    {0x2A, 183},	// Digit 1
+    {0x12, 388},	// Digit 2
+    {0xE0, 184},	// Digit 3
+    {0x0A, 185},	// Digit 4
+    {0x48, KEY_VOLUMEDOWN},	// Digit 5
+    {0x88, 186},	// Digit 6
+    {0x32, KEY_VOLUMEDOWN},	// Digit 7
+    {0x70, KEY_VOLUMEDOWN},	// Digit 8
+    {0xB0, KEY_VOLUMEDOWN},	// Digit 9
+    {0x30, KEY_SEARCH},	// Digit 0
+    
+    {0xD2, KEY_VOLUMEDOWN},	// Delete
+    
+    {0xC0, 183},          	// Signal source
+    {0x28, 184},          	// Volume down (TOP)
+    {0x08, 184},          	// Volume up (TOP)
+    
+    {0xE8, KEY_SEARCH},     // search
+};
+
 extern suspend_state_t get_suspend_state(void);
 
 
 static struct rkxx_remotectl_button remotectl_button[] = 
 {
+    {  
+       .usercode = 0xff,
+       .nbuttons =  22, 
+       .key_table = &remote_key_table_sunchip_202[0],
+    },
+    
+    {  
+       .usercode = 0x206, 
+       .nbuttons =  22, 
+       .key_table = &remote_key_table_meiyu_202[0],
+    },
+    {
+       .usercode = 0x12ee,
+       .nbuttons =  22,
+       .key_table = &remote_key_table_meiyu_202[0],
+    },
     {  
        .usercode = 0x202, 
        .nbuttons =  22, 
@@ -247,7 +307,7 @@ static void remotectl_do_something(unsigned long  data)
             }
 
             if (ddata->count == 0x10){//16 bit user code
-               // printk("u=0x%x\n",((ddata->scanData)&0xFFFF));
+                //printk("u=0x%x\n",((ddata->scanData)&0xFFFF));
                 if (remotectl_keybdNum_lookup(ddata)){
                     ddata->state = RMC_GETDATA;
                     ddata->scanData = 0;
@@ -269,7 +329,7 @@ static void remotectl_do_something(unsigned long  data)
                 ddata->scanData |= 0x01;
             }           
             if (ddata->count == 0x10){
-               // printk(KERN_ERR "d=%x\n",(ddata->scanData&0xFFFF));
+                //printk("RMC_GETDATA=%x\n",(ddata->scanData&0xFFFF));
 
                 if ((ddata->scanData&0x0ff) == ((~ddata->scanData >> 8)&0x0ff)){
                     if (remotectl_keycode_lookup(ddata)){
@@ -652,8 +712,13 @@ static struct platform_driver remotectl_device_driver = {
 
 static int  remotectl_init(void)
 {
-    printk(KERN_INFO "++++++++remotectl_init\n");
-    return platform_driver_register(&remotectl_device_driver);
+	printk("===================================================\n");
+	printk("Rockchip IR remote controller driver. Version 1.0.0\n");
+	printk("===================================================\n");
+	
+	printk(KERN_INFO "++++++++remotectl_init\n");
+	
+	return platform_driver_register(&remotectl_device_driver);
 }
 
 

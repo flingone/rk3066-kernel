@@ -225,6 +225,10 @@ static void keys_long_press_timer(unsigned long _data)
 	}
 	bdata->state = state;
 }
+#ifdef CONFIG_RK_LID
+extern const char* lidstates [];//= {"unknow","close","open"};
+extern char* lidstate;// = "unknow";  
+#endif
 static void keys_timer(unsigned long _data)
 {
 	int state;
@@ -241,6 +245,15 @@ static void keys_timer(unsigned long _data)
 		bdata->state = state;
 		key_dbg(bdata, "%skey[%s]: report ev[%d] state[%d]\n", 
 			(button->gpio == INVALID_GPIO)?"ad":"io", button->desc, button->code, bdata->state);
+#ifdef CONFIG_RK_LID
+		 // disable POWER Key if lid closed
+	        if((lidstate != lidstates[2])&&(button->code == KEY_POWER)){
+	            printk("KEYS(1) : Power Key fiter\n");
+	            return IRQ_HANDLED;
+	        }  else {
+	            printk("KEYS(1) : key info -> %d (PWR=%d)\n",button->code,KEY_POWER);
+	        }
+#endif
 		input_event(input, type, button->code, bdata->state);
 		input_sync(input);
 	}
@@ -258,13 +271,21 @@ static irqreturn_t keys_isr(int irq, void *dev_id)
 	BUG_ON(irq != gpio_to_irq(button->gpio));
 
         if(button->wakeup == 1 && bdata->ddata->in_suspend == true){
+		bdata->state = 1;
 		key_dbg(bdata, "wakeup: %skey[%s]: report ev[%d] state[%d]\n", 
 			(button->gpio == INVALID_GPIO)?"ad":"io", button->desc, button->code, bdata->state);
-		input_event(input, type, button->code, 1);
+#ifdef CONFIG_RK_LID
+        // disable POWER Key if lid closed
+        if((lidstate != lidstates[2])&&(button->code == KEY_POWER)){
+            printk("KEYS(2) : Power Key fiter\n");
+            return IRQ_HANDLED;
+        } else {
+            printk("KEYS(2) : key info -> %d (PWR=%d)\n",button->code,KEY_POWER);
+        }
+
+#endif
+		input_event(input, type, button->code, bdata->state);
 		input_sync(input);
-		input_event(input, type, button->code, 0);
-		input_sync(input);
-	        return IRQ_HANDLED;
         }
 	bdata->long_press_count = 0;
 	mod_timer(&bdata->timer,

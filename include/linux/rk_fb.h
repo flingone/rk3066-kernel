@@ -58,8 +58,21 @@
 #define RK_FBIOGET_ENABLE		0x5020
 #define RK_FBIOSET_CONFIG_DONE		0x4628
 #define RK_FBIOSET_VSYNC_ENABLE		0x4629
-#define RK_FBIOPUT_NUM_BUFFERS 	0x4625
+#define RK_FBIOPUT_NUM_BUFFERS 		0x4625
+#define RK_FBIOPUT_COLOR_KEY_CFG	0x4626
 
+
+/**rk fb events**/
+#define RK_LF_STATUS_FC                  0xef
+#define RK_LF_STATUS_FR                  0xee
+#define RK_LF_STATUS_NC                  0xfe
+#define MAX_TIMEOUT 			 (1600000UL << 6) //>0.64s
+#define RK_LF_MAX_TIMEOUT                (1600000UL << 6) //>0.64s
+
+
+extern int rk_fb_poll_prmry_screen_vblank(void);
+extern int rk_fb_get_prmry_screen_ft(void);
+extern bool rk_fb_poll_wait_frame_complete(void);
 
 /********************************************************************
 **          display output interface supported by rockchip lcdc                       *
@@ -69,7 +82,9 @@
 #define OUT_P666            1   //18bit screen,connect to lcdc D0~D17
 #define OUT_P565            2 
 #define OUT_S888x           4
-#define OUT_CCIR656         6
+#define OUT_CCIR656_M0		5	//CCIR 8bit,connect to lcdc D0~D7
+#define OUT_CCIR656_M1      6	//CCIR 8bit,connect to lcdc D8~D15
+#define OUT_CCIR656_M2      7	//CCIR 8bit,connect to lcdc D7~D14
 #define OUT_S888            8
 #define OUT_S888DUMY        12
 #define OUT_P16BPP4         24
@@ -175,9 +190,16 @@ struct rk_fb_vsync {
 	wait_queue_head_t	wait;
 	ktime_t			timestamp;
 	bool			active;
+	bool                    irq_stop;
 	int			irq_refcount;
 	struct mutex		irq_lock;
 	struct task_struct	*thread;
+};
+
+struct color_key_cfg {
+	u32 win0_color_key_cfg;
+	u32 win1_color_key_cfg;
+	u32 win2_color_key_cfg;
 };
 
 typedef enum _TRSP_MODE
@@ -191,34 +213,62 @@ typedef enum _TRSP_MODE
     TRSP_INVAL
 } TRSP_MODE;
 
+//$_rbox_$_modify_$_zhengyang modified for box display system
 enum {
-	LAYER_WIN0 = 0x1,
-	LAYER_WIN1 = 0x2,
-	LAYER_WIN2 = 0x4,
+	LAYER_DISABLE = 0,
+	LAYER_ENABLE
 };
 
-struct layer_par {
-    char name[5];
-    int id;
-    bool state; 	//on or off
-    u32	pseudo_pal[16];
-    u32 y_offset;       //yuv/rgb offset  -->LCDC_WINx_YRGB_MSTx
-    u32 c_offset;     //cb cr offset--->LCDC_WINx_CBR_MSTx
-    u32 xpos;         //start point in panel  --->LCDC_WINx_DSP_ST
-    u32 ypos;
-    u16 xsize;        // display window width/height  -->LCDC_WINx_DSP_INFO
-    u16 ysize;          
-    u16 xact;        //origin display window size -->LCDC_WINx_ACT_INFO
-    u16 yact;
-    u16 xvir;       //virtual width/height     -->LCDC_WINx_VIR
-    u16 yvir;
-    unsigned long smem_start;
-    unsigned long cbr_start;  // Cbr memory start address
-    enum data_format format;
-	
-    bool support_3d;
-    
+enum {
+	LAYER_WIN0 = 1,
+	LAYER_WIN1 = 2,
+	LAYER_WIN2 = 4,
+	LAYER_WIN3 = 8,
 };
+//$_rbox_$_modify_$_zhengyang modified end
+
+struct layer_par {
+	char name[5];
+	int id;
+	bool state; 	//on or off
+	u32	pseudo_pal[16];
+	u32 y_offset;       //yuv/rgb offset  -->LCDC_WINx_YRGB_MSTx
+	u32 c_offset;     //cb cr offset--->LCDC_WINx_CBR_MSTx
+	u32 xpos;         //start point in panel  --->LCDC_WINx_DSP_ST
+	u32 ypos;
+	u16 xsize;        // display window width/height  -->LCDC_WINx_DSP_INFO
+	u16 ysize;          
+	u16 xact;        //origin display window size -->LCDC_WINx_ACT_INFO
+	u16 yact;
+	u16 xvir;       //virtual width/height     -->LCDC_WINx_VIR
+	u16 yvir;
+	unsigned long smem_start;
+	unsigned long cbr_start;  // Cbr memory start address
+	enum data_format format;
+
+	bool support_3d;
+	u32 scale_yrgb_x;
+	u32 scale_yrgb_y;
+	u32 scale_cbcr_x;
+	u32 scale_cbcr_y;
+	u32 dsp_stx;
+	u32 dsp_sty;
+	u32 vir_stride;
+	u32 y_addr;
+	u32 uv_addr;
+	u8 fmt_cfg;
+	u8 swap_rb;
+	u32 reserved;
+};
+
+//$_rbox_$_modify_$_zhengyang modified for box display system	
+struct overscan {
+	unsigned char left;
+	unsigned char top;
+	unsigned char right;
+	unsigned char bottom;
+};
+//$_rbox_$_modify_$end
 
 struct rk_lcdc_device_driver{
 	char name[6];
@@ -234,15 +284,17 @@ struct rk_lcdc_device_driver{
 	rk_screen *screen1;		      //two display devices for dual display,such as rk2918,rk2928
 	rk_screen *cur_screen;		     //screen0 is primary screen ,like lcd panel,screen1 is  extend screen,like hdmi
 	u32 pixclock;
-	int x_scale;
-	int y_scale;
-	int overlay;
+//$_rbox_$_modify_$_zhengyang modified for box display system	
+	struct overscan overscan;
 	int enable;
-	int *dsp_lut;
-        char fb0_win_id;
-        char fb1_win_id;
-        char fb2_win_id;
-        struct mutex fb_win_id_mutex;
+	int overlay;
+	int *dsp_lut; 
+//$_rbox_$_modify_$end
+	
+	char fb0_win_id;
+	char fb1_win_id;
+	char fb2_win_id;
+	struct mutex fb_win_id_mutex;
 	
 	struct completion  frame_done;		  //sync for pan_display,whe we set a new frame address to lcdc register,we must make sure the frame begain to display
 	spinlock_t  cpl_lock; 			 //lock for completion  frame done
@@ -259,6 +311,7 @@ struct rk_lcdc_device_driver{
 	int (*blank)(struct rk_lcdc_device_driver *dev_drv,int layer_id,int blank_mode);
 	int (*set_par)(struct rk_lcdc_device_driver *dev_drv,int layer_id);
 	int (*pan_display)(struct rk_lcdc_device_driver *dev_drv,int layer_id);
+	int (*lcdc_reg_update)(struct rk_lcdc_device_driver *dev_drv);
 	ssize_t (*get_disp_info)(struct rk_lcdc_device_driver *dev_drv,char *buf,int layer_id);
 	int (*load_screen)(struct rk_lcdc_device_driver *dev_drv, bool initscreen);
 	int (*get_layer_state)(struct rk_lcdc_device_driver *dev_drv,int layer_id);
@@ -269,7 +322,12 @@ struct rk_lcdc_device_driver{
 	int (*set_dsp_lut)(struct rk_lcdc_device_driver *dev_drv,int *lut);
 	int (*read_dsp_lut)(struct rk_lcdc_device_driver *dev_drv,int *lut);
 	int (*lcdc_hdmi_process)(struct rk_lcdc_device_driver *dev_drv,int mode); //some lcdc need to some process in hdmi mode
+	int (*set_irq_to_cpu)(struct rk_lcdc_device_driver *dev_drv,int enable);
+	int (*poll_vblank)(struct rk_lcdc_device_driver *dev_drv);
 	int (*lcdc_rst)(struct rk_lcdc_device_driver *dev_drv);
+	int (*dpi_open)(struct rk_lcdc_device_driver *dev_drv,bool open);
+	int (*dpi_layer_sel)(struct rk_lcdc_device_driver *dev_drv,int layer_id);
+	int (*dpi_status)(struct rk_lcdc_device_driver *dev_drv);
 	
 };
 
@@ -290,9 +348,18 @@ extern int rk_fb_register(struct rk_lcdc_device_driver *dev_drv,
 extern int rk_fb_unregister(struct rk_lcdc_device_driver *dev_drv);
 extern int get_fb_layer_id(struct fb_fix_screeninfo *fix);
 extern struct rk_lcdc_device_driver * rk_get_lcdc_drv(char *name);
+extern rk_screen * rk_fb_get_prmry_screen(void);
+extern u32 rk_fb_get_prmry_screen_pixclock(void);
+
+extern int rk_fb_dpi_open(bool open);
+extern int rk_fb_dpi_layer_sel(int layer_id);
+extern int rk_fb_dpi_status(void);
+
 extern int rk_fb_switch_screen(rk_screen *screen ,int enable ,int lcdc_id);
 extern int rk_fb_disp_scale(u8 scale_x, u8 scale_y,u8 lcdc_id);
 extern int rkfb_create_sysfs(struct fb_info *fbi);
+extern char * get_format_string(enum data_format,char *fmt);
+extern int support_uboot_display(void);
 static int inline rk_fb_calc_fps(rk_screen *screen,u32 pixclock)
 {
 	int x, y;
@@ -392,4 +459,5 @@ static int inline __rk_platform_add_display_devices(struct platform_device *fb,
 
 	return 0;
 }
+
 #endif

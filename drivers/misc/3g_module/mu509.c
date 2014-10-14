@@ -73,7 +73,7 @@ static irqreturn_t detect_irq_handler(int irq, void *dev_id)
     }
     return IRQ_HANDLED;
 }
-int modem_poweron_off(int on_off)
+static int modem_poweron_off(int on_off)
 {
 	struct rk29_mu509_data *pdata = gpdata;		
   if(on_off)
@@ -174,7 +174,7 @@ static ssize_t modem_status_write(struct class *cls, const char *_buf, size_t _c
 	modem_status = new_state;
     return _count; 
 }
-static CLASS_ATTR(modem_status, 0777, modem_status_read, modem_status_write);
+static CLASS_ATTR(modem_status, 0664, modem_status_read, modem_status_write);
 static void rk29_early_suspend(struct early_suspend *h)
 {
 		 
@@ -202,23 +202,52 @@ static int mu509_probe(struct platform_device *pdev)
 	pdata->dev = &pdev->dev;
 	if(pdata->io_init)
 		pdata->io_init();
-	gpio_set_value(pdata->modem_power_en, GPIO_HIGH);
-	msleep(1000);
-	modem_poweron_off(1);
-	modem_status = 1;
-	
-	register_early_suspend(&mu509_early_suspend);
+
+   printk("******** mu509_probe_mu509_probe*********\n");	
+
+		#if 0	
+			rk30_mux_api_set(GPIO1A1_UART0SOUT_NAME, GPIO1A_GPIO1A4);	
+				    result = gpio_request(RK30_PIN1_PA4, "uart1_sout");			
+					if (result < 0) {	
+							
+				printk("%s: gpio_request( uart1_sout ) failed\n", __func__);	
+				
+				}	
+				else {
+           	printk("******* uart0_sout low ( %s ) 88 ********\n", __FUNCTION__);
+			gpio_set_value(RK30_PIN1_PA4, GPIO_LOW);  // Make sure the uart1_rx of MU509 is low for usb autosuspend	
+			
+			}		
+   
+   	  #endif	
+
+
 	mu509_data = kzalloc(sizeof(struct modem_dev), GFP_KERNEL);
 	if(mu509_data == NULL)
 	{
 		printk("failed to request mu509_data\n");
-		goto err2;
+		goto err0;
 	}
-	platform_set_drvdata(pdev, mu509_data);		
+	platform_set_drvdata(pdev, mu509_data);	
+	result = gpio_request(pdata->modem_power_en,"modem_power_en");
+	if(result){
+			printk("failed to request modem_power_en gpio\n");
+			goto err1;
+		}
+	gpio_set_value(pdata->modem_power_en, GPIO_HIGH);
+	result = gpio_request(pdata->bp_power,"modem_power");
+  if(result){
+  		printk("failed to request modem_power gpio\n");
+			goto err2;
+  	}
+
+	
+	register_early_suspend(&mu509_early_suspend);
+	
 	result = gpio_request(pdata->ap_wakeup_bp, "mu509");
 	if (result) {
 		printk("failed to request AP_BP_WAKEUP gpio\n");
-		goto err1;
+		goto err3;
 	}	
 	irq	= gpio_to_irq(pdata->bp_wakeup_ap);
 	enable_irq_wake(irq);
@@ -238,9 +267,13 @@ static int mu509_probe(struct platform_device *pdev)
 	if (result < 0) {
 		printk("%s: request_irq(%d) failed\n", __func__, irq);
 		gpio_free(pdata->bp_wakeup_ap);
-		goto err0;
+		goto err4;
 	}
 	enable_irq_wake(gpio_to_irq(pdata->bp_wakeup_ap)); 
+	
+	msleep(1000);
+	modem_poweron_off(1);
+	modem_status = 1;
 
 	result = misc_register(&mu509_misc);
 	if(result)
@@ -249,16 +282,20 @@ static int mu509_probe(struct platform_device *pdev)
 	}	
 	return result;
 err0:
-	cancel_work_sync(&mu509_data->work);
-	gpio_free(pdata->bp_wakeup_ap);
-err1:
-	gpio_free(pdata->ap_wakeup_bp);
-err2:
 	kfree(mu509_data);
+err1:
+	gpio_free(pdata->modem_power_en);
+err2:
+	gpio_free(pdata->bp_power);
+err3:
+	gpio_free(pdata->ap_wakeup_bp);
+err4:
+	cancel_work_sync(&mu509_data->work);
+	gpio_free(pdata->bp_wakeup_ap);	
 	return 0;
 }
 
-int mu509_suspend(struct platform_device *pdev, pm_message_t state)
+static int mu509_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	suspend_int = 1;
 	do_wakeup_irq = 1;
@@ -272,7 +309,7 @@ int mu509_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-int mu509_resume(struct platform_device *pdev)
+static int mu509_resume(struct platform_device *pdev)
 {
 #if defined(CONFIG_ARCH_RK29)
 	rk29_mux_api_set(GPIO1C1_UART0RTSN_SDMMC1WRITEPRT_NAME, GPIO1H_UART0_RTS_N);
@@ -287,12 +324,13 @@ int mu509_resume(struct platform_device *pdev)
 	return 0;
 }
 
-void mu509_shutdown(struct platform_device *pdev)
+static void mu509_shutdown(struct platform_device *pdev)
 {
 	struct rk29_mu509_data *pdata = pdev->dev.platform_data;
 	struct modem_dev *mu509_data = platform_get_drvdata(pdev);
 	
 	modem_poweron_off(0);
+	gpio_set_value(pdata->modem_power_en, GPIO_LOW);
 
 	if(pdata->io_deinit)
 		pdata->io_deinit();

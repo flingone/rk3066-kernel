@@ -7,10 +7,11 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#include "ov5640.h"
+//#include "ov5640.h"
 
-static struct reginfo sensor_af_firmware[] =
+static struct rk_sensor_reg sensor_af_firmware[] =
 {
+    SensorStreamChk,
 #if 0
 	{0x3000, 0x20},
 	{0x8000, 0x02},
@@ -11925,5 +11926,5 @@ static struct reginfo sensor_af_firmware[] =
 {0x3029,0x7F},
 {0x3000,0x00},
 #endif
-	{SEQUENCE_END,0x00},
+SensorEnd
 };

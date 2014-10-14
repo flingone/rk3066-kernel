@@ -31,7 +31,7 @@ static inline int mode_is_valid(unsigned int mode)
         struct union_mode m;
 	
         m.mode = mode;
-	if(mode == INVALID_MODE || m.mux.bank >= GPIO_BANKS)
+	if(mode == INVALID_MODE || m.mux.bank >= GPIO_BANKS || m.mux.goff < 0xA)
 		return 0;
 	else
 		return 1;
@@ -84,20 +84,56 @@ void iomux_set(unsigned int mode)
         
         m.mode = mode;
 	if(!mode_is_valid(mode)){
-		INFO("<%s> mode(0x%x) is invalid\n", __func__, mode);
+		WARN(1, "<%s> mode(0x%x) is invalid\n", __func__, mode);
 		return;
 	}
         //mask = (m.mux.mode < 2)?1:3;
         mask = 3;
         v = (m.mux.mode << (m.mux.off * 2)) + (mask << (m.mux.off * 2 + 16));
+#if defined(CONFIG_ARCH_RK319X)
+        if (m.mux.bank == 0)
+                addr = (unsigned int)RK319X_BB_GRF_BASE + BB_GRF_GPIO0A_IOMUX + 4 * (m.mux.goff - 0x0A);
+        else
+#endif
         addr = (unsigned int)GRF_IOMUX_BASE + 16 * m.mux.bank + 4 * (m.mux.goff - 0x0A);
 
         DBG("<%s> mode(0x%04x), reg_addr(0x%08x), set_value(0x%08x)\n", __func__, mode, addr, v);
 
         writel_relaxed(v, (void *)addr);
 }
+int iomux_is_set(unsigned int mode)
+{
+        unsigned int v, addr, mask;
+        struct union_mode m;
+        
+        m.mode = mode;
+	if(!mode_is_valid(mode)){
+		WARN(1, "<%s> mode(0x%x) is invalid\n", __func__, mode);
+		return -1;
+	}
+        mask = 3;
+        v = (m.mux.mode << (m.mux.off * 2)) + (mask << (m.mux.off * 2 + 16));
+#if defined(CONFIG_ARCH_RK319X)
+        if (m.mux.bank == 0)
+                addr = (unsigned int)RK319X_BB_GRF_BASE + BB_GRF_GPIO0A_IOMUX + 4 * (m.mux.goff - 0x0A);
+        else
+#endif
+        addr = (unsigned int)GRF_IOMUX_BASE + 16 * m.mux.bank + 4 * (m.mux.goff - 0x0A);
+
+        if((readl_relaxed((void *)addr) & v) != 0)
+		return 1;
+	else if((mode & 0x03) == 0) //gpio mode
+		return 1;
+	else
+		return 0;
+}
 #else
 void iomux_set(unsigned int mode)
+{
+	INFO("%s is not support\n", __func__);
+	return;
+}
+int iomux_is_set(unsigned int mode)
 {
 	INFO("%s is not support\n", __func__);
 	return;
@@ -174,7 +210,11 @@ static unsigned int default_mode[] = {
 	#endif
 
 	#ifdef CONFIG_RK30_VMAC
-	RMII_CLKOUT, RMII_TXEN, RMII_TXD1, RMII_TXD0, RMII_RXERR, 
+#if defined (CONFIG_RK29_VMAC_EXT_CLK)  	    
+	RMII_CLKIN, RMII_TXEN, RMII_TXD1, RMII_TXD0, RMII_RXERR, 
+#else
+    RMII_CLKOUT, RMII_TXEN, RMII_TXD1, RMII_TXD0, RMII_RXERR, 
+#endif
 	RMII_CRS, RMII_RXD1, RMII_RXD0, RMII_MD, RMII_MDCLK,
 	#endif
 #endif

@@ -104,8 +104,8 @@ obj-$(CONFIG_SOC_CAMERA_S5K6AA)		+= s5k6aa.o
 obj-$(CONFIG_SOC_CAMERA_GT2005)		+= gt2005.o
 obj-$(CONFIG_SOC_CAMERA_GC0307)		+= gc0307.o
 obj-$(CONFIG_SOC_CAMERA_GC0308)		+= gc0308.o
+obj-$(CONFIG_SOC_CAMERA_GC0328)     += gc0328.o
 obj-$(CONFIG_SOC_CAMERA_GC0309)		+= gc0309.o
-obj-$(CONFIG_SOC_CAMERA_GC0309_FOR_TD8801)		+= gc0309_for_td8801.o
 obj-$(CONFIG_SOC_CAMERA_GC2015)		+= gc2015.o
 obj-$(CONFIG_SOC_CAMERA_GC2035)         += gc2035.o
 obj-$(CONFIG_SOC_CAMERA_SIV120B)	+= siv120b.o
@@ -113,13 +113,20 @@ obj-$(CONFIG_SOC_CAMERA_SIV121D)	+= siv121d.o
 obj-$(CONFIG_SOC_CAMERA_SID130B)	+= sid130B.o
 obj-$(CONFIG_SOC_CAMERA_HI253)	+= hi253.o
 obj-$(CONFIG_SOC_CAMERA_HI704)	+= hi704.o
+obj-$(CONFIG_SOC_CAMERA_NT99160)	+= nt99160_2way.o
+obj-$(CONFIG_SOC_CAMERA_NT99240)	+= nt99240_2way.o
 obj-$(CONFIG_SOC_CAMERA_NT99250)	+= nt99250.o
+obj-$(CONFIG_SOC_CAMERA_NT99252)	+= nt99252_3way.o
+obj-$(CONFIG_SOC_CAMERA_NT99340)	+= nt99340_2way.o
 obj-$(CONFIG_SOC_CAMERA_GC0329)	+= gc0329.o
+#obj-$(CONFIG_SOC_CAMERA_SP0718)	+= sp0718.o
 obj-$(CONFIG_SOC_CAMERA_SP0838)	+= sp0838.o
 obj-$(CONFIG_SOC_CAMERA_SP2518)	+= sp2518.o
 obj-$(CONFIG_SOC_CAMERA_S5K5CA)	+= s5k5ca.o
+obj-$(CONFIG_SOC_CAMERA_HM2057)	+= hm2057.o
+obj-$(CONFIG_SOC_CAMERA_HM5065)	+= hm5065.o
 obj-$(CONFIG_SOC_CAMERA_MV9335) += mv9335/
-
+obj-$(CONFIG_SOC_CAMERA_ICATCH7002)	+= icatch7002/
 # And now the v4l2 drivers:
 
 obj-$(CONFIG_VIDEO_BT848) += bt8xx/
@@ -211,10 +218,18 @@ ifeq ($(CONFIG_ARCH_RK2928),y)
 obj-$(CONFIG_VIDEO_RKCIF_WORK_ONEFRAME)  += rk30_camera_oneframe.o
 obj-$(CONFIG_VIDEO_RKCIF_WORK_PINGPONG)	+= rk30_camera_pingpong.o
 endif
+
+ifeq ($(CONFIG_ARCH_RK3026),y)
+obj-$(CONFIG_VIDEO_RKCIF_WORK_ONEFRAME) += rk30_camera_oneframe.o
+obj-$(CONFIG_VIDEO_RKCIF_WORK_PINGPONG) += rk30_camera_pingpong.o
+endif
+
 ifeq ($(CONFIG_ARCH_RK29),y)
 obj-$(CONFIG_VIDEO_RKCIF_WORK_ONEFRAME)  += rk29_camera_oneframe.o
 obj-$(CONFIG_VIDEO_RKCIF_WORK_PINGPONG)	+= rk29_camera_pingpang.o
 endif
+obj-$(CONFIG_VIDEO_RKCIF_WORK_ONEFRAME)  += generic_sensor.o
+obj-$(CONFIG_VIDEO_RKCIF_WORK_PINGPONG)  += generic_sensor.o
 
 obj-$(CONFIG_VIDEO_RK29XX_VOUT)		+= rk29xx/
 obj-$(CONFIG_VIDEO_SH_MOBILE_CSI2)	+= sh_mobile_csi2.o
@@ -235,6 +250,8 @@ obj-$(CONFIG_VIDEO_SAA7164)     += saa7164/
 obj-$(CONFIG_VIDEO_IR_I2C)  += ir-kbd-i2c.o
 
 obj-y	+= davinci/
+
+obj-y += rk_camsys/
 
 obj-$(CONFIG_ARCH_OMAP)	+= omap/
 

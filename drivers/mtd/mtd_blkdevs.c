@@ -41,8 +41,6 @@ static LIST_HEAD(blktrans_majors);
 static DEFINE_MUTEX(blktrans_ref_mutex);
 
 #define MTD_MERGE                       1
-
-
 static void blktrans_dev_release(struct kref *kref)
 {
 	struct mtd_blktrans_dev *dev =
@@ -313,6 +311,21 @@ static int mtd_blktrans_thread(void *arg)
 		buf = 0;
 		res = 0;
 	    cmd_flag = rq_data_dir(req);
+
+        if (req->cmd_flags & REQ_DISCARD) //zyf add discard
+        {
+            if(tr->discard)
+            {
+                if (tr->discard(dev, block , req->__data_len >> 9))
+                    res = -EIO;
+            }
+            mutex_unlock(&dev->lock);
+            spin_lock_irq(rq->queue_lock);
+            if (!__blk_end_request_cur(req, res))
+                req = NULL;
+            continue;
+        }
+
 	    //i = 0;
         if(cmd_flag == READ && mtd_rw_buffer)
         {
@@ -321,10 +334,9 @@ static int mtd_blktrans_thread(void *arg)
             req_check_buffer_align(req,&buf);
             nsect = req->__data_len >> 9;
             if( nsect > MTD_RW_SECTORS ) {
-                //printk("%s..%d::nsect=%d,too large , may be error!\n",__FILE__,__LINE__, nsect );
+                printk("%s..%d::nsect=%d,too large , may be error!\n",__FILE__,__LINE__, nsect );
                 nsect = MTD_RW_SECTORS;
-				BUG_ON(1);
-                //while(1);
+                while(1);
             }
 			if(buf == mtd_rw_buffer )
             	mutex_lock(&mtd_rw_buffer_lock);
@@ -674,7 +686,8 @@ int add_mtd_blktrans_dev(struct mtd_blktrans_dev *new)
 
 	if (tr->discard) {
 		queue_flag_set_unlocked(QUEUE_FLAG_DISCARD, new->rq);
-		new->rq->limits.max_discard_sectors = UINT_MAX;
+		//new->rq->limits.max_discard_sectors = UINT_MAX;
+        blk_queue_max_discard_sectors(new->rq, UINT_MAX >> 9); //use generic helper to set max_discard_sectors
 	}
 
 	gd->queue = new->rq;

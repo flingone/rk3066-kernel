@@ -1486,7 +1486,11 @@ static inline void pcd_setup( dwc_otg_pcd_t *_pcd )
 		ep0->dwc_ep.is_in = 0;
 		_pcd->ep0state = EP0_OUT_DATA_PHASE;
 	}
-
+    if (ctrl.wLength == 0) 
+	{		 
+		ep0->dwc_ep.is_in = 1;
+		_pcd->ep0state = EP0_STATUS;
+	} 
 	if ((ctrl.bRequestType & USB_TYPE_MASK) != USB_TYPE_STANDARD) 
 	{
 		/* handle non-standard (class/vendor) requests in the gadget driver */
@@ -1843,6 +1847,10 @@ static void handle_ep0( dwc_otg_pcd_t *_pcd )
 		{
 			dwc_otg_ep0_continue_transfer ( GET_CORE_IF(_pcd), &ep0->dwc_ep );
 			DWC_DEBUGPL(DBG_PCD, "CONTINUE TRANSFER\n"); 
+		}else if (ep0->dwc_ep.sent_zlp) {
+			dwc_otg_ep0_continue_transfer(GET_CORE_IF(_pcd), &ep0->dwc_ep);
+			ep0->dwc_ep.sent_zlp = 0;
+			DWC_DEBUGPL(DBG_PCD, "CONTINUE TRANSFER sent zlp\n");
 		}
 		else 
 		{		

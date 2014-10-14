@@ -50,8 +50,16 @@
 #if defined(CONFIG_CT36X_TS)
 #include <linux/ct36x.h>
 #endif
+#include <linux/regulator/act8931.h>
 #if defined(CONFIG_MFD_RK610)
 #include <linux/mfd/rk610_core.h>
+#endif
+#if defined(CONFIG_MFD_RK616)
+#include <linux/mfd/rk616.h>
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_GT82X_IIC
+#include <linux/goodix_touch_82x.h>
 #endif
 
 #if defined(CONFIG_RK_HDMI)
@@ -71,6 +79,8 @@
 
 #include "board-rk3168-86v-camera.c"
 #include <plat/key.h>
+
+
 
 static struct rk29_keys_button key_button[] = {
 	{
@@ -162,6 +172,41 @@ struct ts_hw_data     gslx680_info = {
 #endif
 
 
+#if defined(CONFIG_TOUCHSCREEN_GSLX680_RK3168)
+#define TOUCH_RESET_PIN RK30_PIN0_PB6
+#define TOUCH_EN_PIN NULL
+#define TOUCH_INT_PIN RK30_PIN1_PB7
+
+int gslx680_init_platform_hw(void)
+{
+
+       if(gpio_request(TOUCH_RESET_PIN,NULL) != 0){
+                gpio_free(TOUCH_RESET_PIN);
+                printk("gslx680_init_platform_hw gpio_request error\n");
+                return -EIO;
+        }
+        if(gpio_request(TOUCH_INT_PIN,NULL) != 0){
+                gpio_free(TOUCH_INT_PIN);
+                printk("gslx680_init_platform_hw  gpio_request error\n");
+                return -EIO;
+        }
+        gpio_direction_output(TOUCH_RESET_PIN, GPIO_HIGH);
+        mdelay(10);
+        gpio_set_value(TOUCH_RESET_PIN,GPIO_LOW);
+        mdelay(10);
+        gpio_set_value(TOUCH_RESET_PIN,GPIO_HIGH);
+        msleep(300);
+        return 0;
+
+}
+
+struct ts_hw_data     gslx680_info = {
+	.reset_gpio = TOUCH_RESET_PIN,
+	.touch_en_gpio = TOUCH_INT_PIN,
+	.init_platform_hw = gslx680_init_platform_hw,
+};
+#endif
+
 #if defined (CONFIG_TOUCHSCREEN_86V_GT811_IIC)
 #define TOUCH_RESET_PIN  RK30_PIN0_PB6
 #define TOUCH_INT_PIN    RK30_PIN1_PB7
@@ -196,6 +241,73 @@ static struct goodix_platform_data gt811_info = {
 
 };
 #endif
+
+#ifdef  CONFIG_TOUCHSCREEN_GT82X_IIC
+#define TOUCH_ENABLE_PIN	INVALID_GPIO
+#define TOUCH_RESET_PIN  RK30_PIN0_PB6//RK30_PIN4_PD0
+#define TOUCH_INT_PIN    RK30_PIN1_PB7//RK30_PIN4_PC2
+int goodix_init_platform_hw(void)
+{
+	int ret;
+	
+	//rk30_mux_api_set(GPIO4D0_SMCDATA8_TRACEDATA8_NAME, GPIO4D_GPIO4D0);  //hjc
+	//rk30_mux_api_set(GPIO4C2_SMCDATA2_TRACEDATA2_NAME, GPIO4C_GPIO4C2);   //hjc
+	//printk("%s:0x%x,0x%x\n",__func__,rk30_mux_api_get(GPIO4D0_SMCDATA8_TRACEDATA8_NAME),rk30_mux_api_get(GPIO4C2_SMCDATA2_TRACEDATA2_NAME));
+	if (TOUCH_ENABLE_PIN != INVALID_GPIO) {
+		ret = gpio_request(TOUCH_ENABLE_PIN, "goodix power pin");
+		if (ret != 0) {
+			gpio_free(TOUCH_ENABLE_PIN);
+			printk("goodix power error\n");
+			return -EIO;
+		}
+		gpio_direction_output(TOUCH_ENABLE_PIN, 0);
+		gpio_set_value(TOUCH_ENABLE_PIN, GPIO_LOW);
+		msleep(100);
+	}
+
+	if (TOUCH_RESET_PIN != INVALID_GPIO) {
+		ret = gpio_request(TOUCH_RESET_PIN, "goodix reset pin");
+		if (ret != 0) {
+			gpio_free(TOUCH_RESET_PIN);
+			printk("goodix gpio_request error\n");
+			return -EIO;
+		}
+		gpio_direction_output(TOUCH_RESET_PIN, 0);
+		gpio_set_value(TOUCH_RESET_PIN, GPIO_LOW);
+		msleep(10);
+		gpio_set_value(TOUCH_RESET_PIN, GPIO_HIGH);
+		msleep(500);
+	}
+	return 0;
+}
+u8 ts82x_config_data[] = {
+	0x65,0x00,0x04,0x00,0x03,0x00,0x0A,0x0D,0x1E,0xE7,
+	0x32,0x03,0x08,0x10,0x48,0x42,0x42,0x20,0x00,0x01,
+	0x60,0x60,0x4B,0x6E,0x0E,0x0D,0x0C,0x0B,0x0A,0x09,
+	0x08,0x07,0x06,0x05,0x04,0x03,0x02,0x01,0x00,0x1D,
+	0x1C,0x1B,0x1A,0x19,0x18,0x17,0x16,0x15,0x14,0x13,
+	0x12,0x11,0x10,0x0F,0x50,0x00,0x00,0x00,0x00,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x2B,0x00,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+	0x00,0x00,0x00,0x00
+};
+static struct goodix_i2c_rmi_platform_data ts82x_pdata = {
+    .gpio_shutdown = TOUCH_ENABLE_PIN,
+    .gpio_irq = TOUCH_INT_PIN,
+    .gpio_reset = TOUCH_RESET_PIN,
+    .irq_edge = 1, /* 0:rising edge, 1:falling edge */
+
+    .ypol = 1,
+	.swap_xy = 1,
+	.xpol = 0,
+	.xmax = 800,
+    .ymax = 600,
+    .config_info_len =ARRAY_SIZE(ts82x_config_data),
+    .config_info = ts82x_config_data,
+	.init_platform_hw= goodix_init_platform_hw,
+};
+#endif
+
 static struct spi_board_info board_spi_devices[] = {
 };
 
@@ -218,6 +330,7 @@ static int rk29_backlight_io_init(void)
 	int ret = 0;
 
 	iomux_set(PWM_MODE);
+	msleep(100);
 #ifdef  LCD_DISP_ON_PIN
 	ret = gpio_request(BL_EN_PIN, NULL);
 	if (ret != 0) {
@@ -269,7 +382,7 @@ static int rk29_backlight_pwm_resume(void)
 	gpio_free(pwm_gpio);
 	iomux_set(PWM_MODE);
 #ifdef  LCD_DISP_ON_PIN
-	msleep(130);
+	msleep(150);
 	gpio_direction_output(BL_EN_PIN, 1);
 	gpio_set_value(BL_EN_PIN, BL_EN_VALUE);
 #endif
@@ -277,7 +390,9 @@ static int rk29_backlight_pwm_resume(void)
 }
 
 static struct rk29_bl_info rk29_bl_info = {
-        .min_brightness = 30,
+        .min_brightness = 33,
+	.max_brightness=255,
+	.brightness_mode =1,
 	.pre_div = 20 * 1000,  // pwm output clk: 20k;
 	.pwm_id = PWM_ID,
 	.bl_ref = PWM_EFFECT_VALUE,
@@ -331,10 +446,40 @@ static struct sensor_platform_data mma7660_info = {
 	.irq_enable = 1,
 	.poll_delay_ms = 30,
     .init_platform_hw = mma7660_init_platform_hw,
-    .orientation = {0, -1, 0, 0, 0, -1, -1, 0, 0},
-      
+#ifndef CONFIG_MFD_RK616
+	#ifdef CONFIG_TOUCHSCREEN_GSLX680_RK3168
+	.orientation = {-1, 0, 0, 0, -1, 0, 0, 0, 1},
+	#else
+    .orientation = {0, -1, 0, -1, 0, 0, 0, 0, -1},
+    #endif  
+#else
+	.orientation = {1, 0, 0, 0, -1, 0, 0, 0, -1},
+#endif	
 };
 #endif
+
+#if defined (CONFIG_GS_MXC6225)
+#define MXC6225_INT_PIN   RK30_PIN0_PB7
+
+static int mxc6225_init_platform_hw(void)
+{
+//        rk30_mux_api_set(GPIO1B1_SPI_TXD_UART1_SOUT_NAME, GPIO1B_GPIO1B1);
+        return 0;
+}
+
+static struct sensor_platform_data mxc6225_info = {
+        .type = SENSOR_TYPE_ACCEL,
+        .irq_enable = 0,
+        .poll_delay_ms = 30,
+        .init_platform_hw = mxc6225_init_platform_hw,
+#if defined(CONFIG_ANDROID_KITKAT)
+        .orientation = { 0, -1, 0, -1, 0, 0, 0, 0, 1},//mxc6225 only report x and y
+#else
+        .orientation = { -1, 0, 0, 0, -1, 0, 0, 0, 1},//mxc6225 only report x and y
+#endif		
+};
+#endif
+
 
 #if defined (CONFIG_GS_LIS3DH)
 #define LIS3DH_INT_PIN   RK30_PIN0_PB7
@@ -350,7 +495,7 @@ static struct sensor_platform_data lis3dh_info = {
 	.irq_enable = 1,
 	.poll_delay_ms = 30,
         .init_platform_hw = lis3dh_init_platform_hw,
-	.orientation = {-1, 0, 0, 0, 0, 1, 0, -1, 0},
+	.orientation = {1, 0, 0, 0, 1, 0, 0, 0, 1},
 };
 #endif
 #if defined (CONFIG_COMPASS_AK8975)
@@ -389,6 +534,43 @@ static struct sensor_platform_data akm8975_info =
 
 #endif
 
+#if defined (CONFIG_COMPASS_AK8963)
+static struct sensor_platform_data akm8963_info =
+{
+       .type = SENSOR_TYPE_COMPASS,
+       .irq_enable = 1,
+       .poll_delay_ms = 30,
+       .m_layout = 
+       {
+               {
+                       {0, 1, 0},
+                       {1, 0, 0},
+                       {0, 0, -1},
+               },
+
+               {
+                       {1, 0, 0},
+                       {0, 1, 0},
+                       {0, 0, 1},
+               },
+
+               {
+                       {0, -1, 0},
+                       {-1, 0, 0},
+                       {0, 0, -1},
+               },
+
+               {
+                       {1, 0, 0},
+                       {0, 1, 0},
+                       {0, 0, 1},
+               },
+       }
+};
+
+#endif
+
+
 #if defined(CONFIG_GYRO_L3G4200D)
 
 #include <linux/l3g4200d.h>
@@ -423,7 +605,7 @@ static struct sensor_platform_data cm3217_info = {
 
 #ifdef CONFIG_FB_ROCKCHIP
 
-#define LCD_CS_PIN         INVALID_GPIO
+#define LCD_CS_PIN         RK30_PIN3_PD4//INVALID_GPIO
 #define LCD_CS_VALUE       GPIO_HIGH
 
 #define LCD_EN_PIN         RK30_PIN0_PB0
@@ -501,21 +683,37 @@ static int rk_fb_io_enable(void)
 
 #if defined(CONFIG_LCDC0_RK3066B)
 struct rk29fb_info lcdc0_screen_info = {
+#if defined(CONFIG_RK_HDMI) && defined(CONFIG_HDMI_SOURCE_LCDC0)&& defined(CONFIG_DUAL_LCDC_DUAL_DISP_IN_KERNEL)
 	.prop	   = EXTEND,		//primary display device
 	.io_init   = NULL,
 	.io_disable = NULL,
 	.io_enable = NULL,
-	.set_screen_info = NULL,
-};
-#endif
-
-#if defined(CONFIG_LCDC1_RK3066B)
-struct rk29fb_info lcdc1_screen_info = {
+	.set_screen_info = hdmi_init_lcdc,
+#else
 	.prop	   = PRMRY,		//primary display device
 	.io_init   = rk_fb_io_init,
 	.io_disable = rk_fb_io_disable,
 	.io_enable = rk_fb_io_enable,
 	.set_screen_info = set_lcd_info,
+#endif	
+};
+#endif
+
+#if defined(CONFIG_LCDC1_RK3066B)
+struct rk29fb_info lcdc1_screen_info = {
+#if defined(CONFIG_RK_HDMI) && defined(CONFIG_HDMI_SOURCE_LCDC1) && defined(CONFIG_DUAL_LCDC_DUAL_DISP_IN_KERNEL)
+	.prop	   = EXTEND,		//primary display device
+	.io_init   = NULL,
+	.io_disable = NULL,
+	.io_enable = NULL,
+	.set_screen_info = hdmi_init_lcdc,
+#else
+	.prop	   = PRMRY,		//primary display device
+	.io_init   = rk_fb_io_init,
+	.io_disable = rk_fb_io_disable,
+	.io_enable = rk_fb_io_enable,
+	.set_screen_info = set_lcd_info,
+#endif
 	
 };
 #endif
@@ -647,6 +845,60 @@ static struct rk610_codec_platform_data rk610_codec_pdata = {
 	.spk_ctl_io = RK30_PIN2_PD7,
 	.io_init = rk610_codec_io_init,
 	.boot_depop = 1,
+};
+#endif
+
+#if defined(CONFIG_MFD_RK616)
+#define RK616_RST_PIN 			RK30_PIN3_PB2
+#define RK616_PWREN_PIN			RK30_PIN0_PA3
+#define RK616_SCL_RATE			(100*1000)   //i2c scl rate
+static int rk616_power_on_init(void)
+{
+	int ret;
+
+	if(RK616_PWREN_PIN != INVALID_GPIO)
+	{
+		ret = gpio_request(RK616_PWREN_PIN, "rk616 pwren");
+		if (ret)
+		{
+			printk(KERN_ERR "rk616 pwren gpio request fail\n");
+		}
+		else 
+		{
+			gpio_direction_output(RK616_PWREN_PIN,GPIO_HIGH);
+		}
+	}
+	
+	if(RK616_RST_PIN != INVALID_GPIO)
+	{
+		ret = gpio_request(RK616_RST_PIN, "rk616 reset");
+		if (ret)
+		{
+			printk(KERN_ERR "rk616 reset gpio request fail\n");
+		}
+		else 
+		{
+			gpio_direction_output(RK616_RST_PIN, GPIO_HIGH);
+			msleep(100);
+			gpio_direction_output(RK616_RST_PIN, GPIO_LOW);
+			msleep(100);
+	    		gpio_set_value(RK616_RST_PIN, GPIO_HIGH);
+		}
+	}
+
+	return 0;
+	
+}
+
+
+static struct rk616_platform_data rk616_pdata = {
+	.power_init = rk616_power_on_init,
+	.scl_rate   = RK616_SCL_RATE,
+	.lcd0_func = INPUT,             //port lcd0 as input
+	.lcd1_func = OUTPUT,             //port lcd1 as input
+	.lvds_ch_nr = 1,		//the number of used lvds channel  
+	.hdmi_irq = RK30_PIN2_PD6,
+	.spk_ctl_gpio = RK30_PIN2_PD7,
 };
 #endif
 
@@ -855,6 +1107,9 @@ struct rk29_sdmmc_platform_data default_sdmmc1_data = {
 
     #if defined(CONFIG_RK29_SDIO_IRQ_FROM_GPIO)
         .sdio_INT_gpio = RK29SDK_WIFI_SDIO_CARD_INT,
+	    #ifdef USE_SDIO_INT_LEVEL
+        .sdio_INT_level = RK30SDK_WIFI_GPIO_WIFI_INT_B_ENABLE_VALUE,
+        #endif
     #endif
 
     .det_pin_info = {    
@@ -1119,10 +1374,10 @@ struct platform_device rk_device_gps = {
 	};
 #endif
 
-#if defined(CONFIG_MT5931_MT6622)
+#if defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MTK_MT6622)
 static struct mt6622_platform_data mt6622_platdata = {
 		    .power_gpio         = { // BT_REG_ON
-		    	.io             = RK30_PIN3_PD5, // set io to INVALID_GPIO for disable it
+		    	.io             = RK30_PIN3_PC7, // set io to INVALID_GPIO for disable it
 			    .enable         = GPIO_HIGH,
 			    .iomux          = {
 				    .name       = NULL,
@@ -1130,20 +1385,30 @@ static struct mt6622_platform_data mt6622_platdata = {
 		    },
 
 		    .reset_gpio         = { // BT_RST
-		        .io             = RK30_PIN0_PD7,
+		        .io             = RK30_PIN3_PD1,
 		        .enable         = GPIO_HIGH,
 		        .iomux          = {
 		            .name       = NULL,
 		        },
 		    },
 
-		    .irq_gpio           = {
-			    .io             = RK30_PIN3_PD2,
-			    .enable         = GPIO_HIGH,
-			    .iomux          = {
-				    .name       = NULL,
-				},
-		    }
+    .irq_gpio           = {
+        .io             = RK30_PIN0_PA5,
+        .enable         = GPIO_LOW,
+        .iomux          = {
+            .name       = NULL,
+        },
+    },
+
+    .rts_gpio           = { // UART_RTS
+        .io             = RK30_PIN1_PA3,
+        .enable         = GPIO_LOW,
+        .iomux          = {
+            .name       = "bt_rts",
+            .fgpio      = GPIO1_A3,
+            .fmux       = UART0_RTSN,
+        },
+    },
 };
 
 static struct platform_device device_mt6622 = {
@@ -1154,6 +1419,36 @@ static struct platform_device device_mt6622 = {
 			},
 };	
 #endif
+
+#if defined CONFIG_TCC_BT_DEV
+static struct tcc_bt_platform_data tcc_bt_platdata = {
+
+    .power_gpio   = { // ldoon
+        .io             =  RK30_PIN3_PC0,//difined depend on your harware
+        .enable         = GPIO_HIGH,
+        .iomux          = {
+            .name       = NULL,
+            },
+        },
+
+    .wake_host_gpio  = { // BT_HOST_WAKE, for bt wakeup host when it is in deep sleep
+        .io         = RK30_PIN0_PC5, // set io to INVALID_GPIO for disable it,it's depend on your hardware
+        .enable     = IRQF_TRIGGER_RISING,// set IRQF_TRIGGER_FALLING for falling, set IRQF_TRIGGER_RISING for rising
+        .iomux      = {
+            .name       = NULL,
+        },
+    },
+};
+
+static struct platform_device device_tcc_bt = {
+    .name   = "tcc_bt_dev",
+    .id     = -1,
+    .dev    = {
+        .platform_data = &tcc_bt_platdata,
+        },
+};
+#endif
+
 
 static struct platform_device *devices[] __initdata = {
 
@@ -1177,8 +1472,11 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_GPS_RK
 	&rk_device_gps,
 #endif
-#ifdef CONFIG_MT5931_MT6622
+#if defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MTK_MT6622)
 	&device_mt6622,
+#endif
+#ifdef CONFIG_TCC_BT_DEV
+        &device_tcc_bt,
 #endif
 };
 
@@ -1222,6 +1520,15 @@ static struct i2c_board_info __initdata i2c0_info[] = {
 		.platform_data = &mma7660_info,
 	},
 #endif
+#if defined (CONFIG_GS_MXC6225)
+        {
+                .type           = "gs_mxc6225",
+                .addr           = 0x15,
+                .flags          = 0,
+                .irq            = MXC6225_INT_PIN,
+                .platform_data  = &mxc6225_info,
+        },
+#endif
 #if defined (CONFIG_GS_MMA8452)
 	{
 		.type	        = "gs_mma8452",
@@ -1249,6 +1556,15 @@ static struct i2c_board_info __initdata i2c0_info[] = {
 		.platform_data = &akm8975_info,
 		.irq           = RK30_PIN3_PD7,	
 		.platform_data = &akm8975_info,
+	},
+#endif
+#if defined (CONFIG_COMPASS_AK8963)
+	{
+		.type          = "ak8963",
+		.addr          = 0x0d,
+		.flags         = 0,
+		.irq           = RK30_PIN3_PD7,	
+		.platform_data = &akm8963_info,
 	},
 #endif
 #if defined (CONFIG_GYRO_L3G4200D)
@@ -1279,6 +1595,13 @@ static struct i2c_board_info __initdata i2c0_info[] = {
                 .flags                  = 0,
         },
 #endif
+#if defined (CONFIG_SND_SOC_RT5616)
+        {
+                .type                   = "rt5616",
+                .addr                   = 0x1b,
+                .flags                  = 0,
+        },
+#endif
 };
 #endif
 
@@ -1293,25 +1616,41 @@ static struct pmu_info  act8846_dcdc_info[] = {
 		.name          = "act_dcdc1",   //ddr
 		.min_uv          = 1200000,
 		.max_uv         = 1200000,
+		#ifdef CONFIG_ACT8846_SUPPORT_RESET
 		.suspend_vol  =   1200000,
+		#else
+		.suspend_vol  =   900000,
+		#endif
 	},
 	{
 		.name          = "vdd_core",    //logic
 		.min_uv          = 1000000,
 		.max_uv         = 1000000,
+		#ifdef CONFIG_ACT8846_SUPPORT_RESET
+		.suspend_vol  =  1200000,
+		#else
 		.suspend_vol  =  900000,
+		#endif
 	},
 	{
 		.name          = "vdd_cpu",   //arm
 		.min_uv          = 1000000,
 		.max_uv         = 1000000,
+		#ifdef CONFIG_ACT8846_SUPPORT_RESET
+		.suspend_vol  =  1200000,
+		#else
 		.suspend_vol  =  900000,
+		#endif
 	},
 	{
 		.name          = "act_dcdc4",   //vccio
 		.min_uv          = 3000000,
 		.max_uv         = 3000000,
+		#ifdef CONFIG_ACT8846_SUPPORT_RESET
+		.suspend_vol  =  3000000,
+		#else
 		.suspend_vol  =  2800000,
+		#endif
 	},
 	
 };
@@ -1478,11 +1817,11 @@ static struct pmu_info  wm8326_ldo_info[] = {
 static struct pmu_info  tps65910_dcdc_info[] = {
 	{
 		.name          = "vdd_core",   //logic
-		.min_uv          = 1100000,
-		.max_uv         = 1100000,
+		.min_uv          = 1200000,
+		.max_uv         = 1200000,
 	},
 	{
-		.name          = "vdd2",    //ddr
+		.name          = "vdd_cpu",    //arm
 		.min_uv          = 1200000,
 		.max_uv         = 1200000,
 	},
@@ -1494,28 +1833,36 @@ static struct pmu_info  tps65910_dcdc_info[] = {
 	
 };
 static  struct pmu_info  tps65910_ldo_info[] = {
-	{
+/*	{
 		.name          = "vpll",   //vdd10
 		.min_uv          = 1000000,
 		.max_uv         = 1000000,
-	},
+	},*/
 	{
 		.name          = "vdig1",    //vcc18_cif
 		.min_uv          = 1800000,
 		.max_uv         = 1800000,
 	},
+#ifdef CONFIG_MFD_RK616
 	{
-		.name          = "vdig2",   //vdd_jetta
+		.name          = "vdig2",   //vdd11//1.0->1.2 for rk616 vdd_core lch
 		.min_uv          = 1200000,
 		.max_uv         = 1200000,
 	},
+#else
+	{
+		.name          = "vdig2",   //vdd11
+		.min_uv          = 1000000,
+		.max_uv         = 1000000,
+	},
+#endif	
 	{
 		.name          = "vaux1",   //vcc28_cif
 		.min_uv          = 2800000,
 		.max_uv         = 2800000,
 	},
 	{
-		.name          = "vaux2",   //vcca33
+		.name          = "vaux2",   //vcc33
 		.min_uv          = 3300000,
 		.max_uv         = 3300000,
 	},
@@ -1525,7 +1872,7 @@ static  struct pmu_info  tps65910_ldo_info[] = {
 		.max_uv         = 3300000,
 	},
 	{
-		.name          = "vmmc",   //vcc30
+		.name          = "vmmc",   //vcca30
 		.min_uv          = 3000000,
 		.max_uv         = 3000000,
 	},
@@ -1537,6 +1884,55 @@ static  struct pmu_info  tps65910_ldo_info[] = {
  };
 
 #include "board-pmu-tps65910.c"
+#endif
+#ifdef CONFIG_REGULATOR_ACT8931
+#define ACT8931_HOST_IRQ		RK30_PIN0_PB5//depend on your hardware
+
+
+#define ACT8931_CHGSEL_PIN RK30_PIN0_PD0 //depend on your hardware
+
+
+static struct pmu_info  act8931_dcdc_info[] = {
+	{
+		.name          = "vdd_core",   //vdd_logic
+		.min_uv          = 1200000,
+		.max_uv         = 1200000,
+	},
+	{
+		.name          = "act_dcdc2",    //ddr
+		.min_uv          = 1500000,
+		.max_uv         = 1500000,
+	},
+	{
+		.name          = "vdd_cpu",   //vdd_arm
+		.min_uv          = 1200000,
+		.max_uv         = 1200000,
+	},
+	
+};
+static  struct pmu_info  act8931_ldo_info[] = {
+	{
+		.name          = "act_ldo1",   //vcc28_cif
+		.min_uv          = 2800000,
+		.max_uv         = 2800000,
+	},
+	{
+		.name          = "act_ldo2",    //vcc18_cif
+		.min_uv          = 1800000,
+		.max_uv         = 1800000,
+	},
+	{
+		.name          = "act_ldo3",    //vcca30
+		.min_uv          = 3000000,
+		.max_uv         = 3000000,
+	},
+	{
+		.name          = "act_ldo4",    //vcc_wl
+		.min_uv          = 3300000,
+		.max_uv         = 3300000,
+	},
+};
+#include "board-rk30-sdk-act8931.c"
 #endif
 
 static struct i2c_board_info __initdata i2c1_info[] = {
@@ -1573,6 +1969,15 @@ static struct i2c_board_info __initdata i2c1_info[] = {
         .flags          = 0,
         .irq            = TPS65910_HOST_IRQ,
     	.platform_data = &tps65910_data,
+	},
+#endif
+#if defined (CONFIG_REGULATOR_ACT8931)
+	{
+		.type    		= "act8931",
+		.addr           = 0x5b, 
+		.flags			= 0,
+		.irq            = ACT8931_HOST_IRQ,
+		.platform_data=&act8931_data,
 	},
 #endif
 };
@@ -1686,6 +2091,14 @@ static struct i2c_board_info __initdata i2c2_info[] = {
         .platform_data =&gslx680_info,
     },
 #endif
+#if defined (CONFIG_TOUCHSCREEN_GSLX680_RK3168)
+    {
+        .type           = "gslX680",
+        .addr           = 0x40,
+        .flags          = 0,
+        .platform_data =&gslx680_info,
+    },
+#endif
 #if defined (CONFIG_TOUCHSCREEN_86V_GT811_IIC)	
 {		
 	.type          = "gt811_ts",		
@@ -1694,6 +2107,24 @@ static struct i2c_board_info __initdata i2c2_info[] = {
 	.irq           = TOUCH_INT_PIN,		
 	.platform_data = &gt811_info,	
 },
+#endif
+#if defined(CONFIG_TOUCHSCREEN_GT82X_IIC)
+	{
+		.type          = "Goodix-TS-82X",
+		.addr          = 0x5D,
+		.flags         = 0,
+		.irq           = RK30_PIN1_PB7,
+		.platform_data = &ts82x_pdata,
+	},
+#endif
+#if defined(CONFIG_HDMI_CAT66121)
+        {
+                .type           = "cat66121_hdmi",
+                .addr           = 0x4c,
+                .flags          = 0,
+                .irq            = RK30_PIN2_PD6,
+                .platform_data  = &rk_hdmi_pdata,
+        },
 #endif
 };
 #endif
@@ -1736,8 +2167,31 @@ static struct i2c_board_info __initdata i2c4_info[] = {
 		},
 #endif
 #endif
+#if defined (CONFIG_MFD_RK616)
+{
+	.type	       = "rk616",
+	.addr	       = 0x50,
+	.flags	       = 0,
+	.platform_data = &rk616_pdata,
+	},
+#endif
 
+#if defined (CONFIG_SND_RK29_SOC_ES8323)
+				{
+                .type                   = "es8323",//"es8323",
+                .addr                   = 0x10,
+                .flags                  = 0,
+        },
+#endif
 };
+
+#if defined (CONFIG_SND_SOC_RT5616)
+        {
+                .type                   = "rt5616",
+                .addr                   = 0x1b,
+                .flags                  = 0,
+        },
+#endif
 #endif
 
 #ifdef CONFIG_I2C_GPIO_RK30
@@ -1785,33 +2239,90 @@ static void __init rk30_i2c_register_board_info(void)
 #endif
 }
 //end of i2c
+#define USB_INSERT_FAKE_SHUTDOWN
+#if defined(USB_INSERT_FAKE_SHUTDOWN)
+int rk30_pm_enter(suspend_state_t state)
+{}
+int __sramdata charge_power_off = 0;
+
+static void rk30_charge_deal(void)
+{	
+	struct regulator *ldo = NULL;
+	int ret;
+	charge_power_off = 1;
+		
+	//ldo = regulator_get(NULL, "ldo9");	// shutdown tp power		
+	//regulator_disable(ldo); 	
+	//regulator_put(ldo); 		
+	//gpio_set_value(TOUCH_RESET_PIN,  GPIO_LOW);
+	rk29_backlight_pwm_suspend();//shutdown backlight
+	rk_fb_io_disable();  //shutdown lcd
+	
+	local_irq_disable();
+	local_fiq_disable();
+
+	rk30_pm_enter(PM_SUSPEND_MEM);
+
+	if(charge_power_off == 1)
+	{
+		arm_pm_restart(0, NULL);
+	}
+}
+#else
+static void rk30_charge_deal(void){
+}
+#endif 
+
 
 #define POWER_ON_PIN RK30_PIN0_PA0   //power_hold
 static void rk30_pm_power_off(void)
 {
 	printk(KERN_ERR "rk30_pm_power_off start...\n");
 	gpio_direction_output(POWER_ON_PIN, GPIO_LOW);
-#if defined(CONFIG_MFD_WM831X)
-	wm831x_set_bits(Wm831x,WM831X_GPIO_LEVEL,0x0001,0x0000);  //set sys_pwr 0
-	wm831x_device_shutdown(Wm831x);//wm8326 shutdown
-#endif
-#if defined(CONFIG_REGULATOR_ACT8846)
+	
        if (pmic_is_tps65910()) {
-               printk("enter dcdet===========\n");
-               if((gpio_get_value (RK30_PIN0_PB2) == GPIO_LOW)||(gpio_get_value (RK30_PIN0_PA7) == GPIO_HIGH))
+               printk("enter dcdet pmic_is_tps65910===========\n");
+               if(gpio_get_value (RK30_PIN0_PB2) == GPIO_LOW)
                {
                        printk("enter restart===========\n");
-                       arm_pm_restart(0, NULL);
+                       arm_pm_restart(0, "charge");
+               }else if(gpio_get_value (RK30_PIN0_PA7) == GPIO_LOW){//usb in
+			printk("debug: detect dc_det LOW, charging!\n");
+			rk30_charge_deal();
+		  }
+               tps65910_device_shutdown();
+       }else if(pmic_is_act8846()){
+		 printk("enter dcdet pmic_is_act8846===========\n");
+               if(gpio_get_value (RK30_PIN0_PB2) == GPIO_LOW)
+               {
+                       printk("enter restart===========\n");
+                       arm_pm_restart(0, "charge");
                }
-               //act8931_device_shutdown();
-       }
-#endif
+              act8846_device_shutdown();
+	}else if(pmic_is_wm8326()){
+		 printk("enter dcdet pmic_is_wm8326===========\n");
+               if(gpio_get_value (RK30_PIN0_PB2) == GPIO_LOW)
+               {
+                       printk("enter restart===========\n");
+                       arm_pm_restart(0, "charge");
+               }
+		wm831x_set_bits(Wm831x,WM831X_GPIO_LEVEL,0x0001,0x0000);  //set sys_pwr 0
+		wm831x_device_shutdown(Wm831x);//wm8326 shutdown
+	}else if(pmic_is_act8931()){
+		 printk("enter dcdet pmic_is_act8931===========\n");
+               if(gpio_get_value (RK30_PIN0_PB2) == GPIO_LOW)
+               {
+                       printk("enter restart===========\n");
+                       arm_pm_restart(0, "charge");
+               }
+              act8931_device_shutdown();
+	}
 	while (1);
 }
 
 static void __init machine_rk30_board_init(void)
 {
-	//avs_init();
+	avs_init();
 	gpio_request(POWER_ON_PIN, "poweronpin");
 	gpio_direction_output(POWER_ON_PIN, GPIO_HIGH);
 	
@@ -1834,7 +2345,7 @@ static void __init machine_rk30_board_init(void)
 	    clk_set_rate(clk_get_sys("rk_serial.1", "uart"), 48*1000000);
 #endif
 
-#if defined(CONFIG_MT5931_MT6622)
+#if defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MTK_MT6622)
 		clk_set_rate(clk_get_sys("rk_serial.0", "uart"), 24*1000000);
 #endif		
 }
@@ -1878,41 +2389,89 @@ static void __init rk30_reserve(void)
  * @logic_volt	: logic voltage arm requests depend on frequency
  * comments	: min arm/logic voltage
  */
+#ifdef CONFIG_DVFS_WITH_UOC
+//chenxing uoc
 static struct cpufreq_frequency_table dvfs_arm_table[] = {
-	{.frequency = 312 * 1000,       .index = 900 * 1000},
-	{.frequency = 504 * 1000,       .index = 950 * 1000},
-	{.frequency = 816 * 1000,       .index = 1000 * 1000},
-	{.frequency = 1008 * 1000,      .index = 1075 * 1000},
-	{.frequency = 1200 * 1000,      .index = 1150 * 1000},
-	{.frequency = 1416 * 1000,      .index = 1250 * 1000},
-	//{.frequency = 1608 * 1000,      .index = 1300 * 1000},
+	{.frequency = 312 * 1000,       .index = 950 * 1000},
+	{.frequency = 504 * 1000,       .index = 1000 * 1000},
+	{.frequency = 816 * 1000,       .index = 1050 * 1000},
+	{.frequency = 1008 * 1000,      .index = 1125 * 1000},
+	{.frequency = 1200 * 1000,      .index = 1200 * 1000},
 	{.frequency = CPUFREQ_TABLE_END},
 };
 
 static struct cpufreq_frequency_table dvfs_gpu_table[] = {
 	{.frequency = 100 * 1000,	.index = 1000 * 1000},
-	{.frequency = 200 * 1000,	.index = 1025 * 1000},
+	{.frequency = 200 * 1000,	.index = 1000 * 1000},
 	{.frequency = 266 * 1000,	.index = 1050 * 1000},
-	{.frequency = 300 * 1000,	.index = 1100 * 1000},
-	{.frequency = 400 * 1000,	.index = 1200 * 1000},
-	//{.frequency = 600 * 1000,	.index = 1200 * 1000},
+	//{.frequency = 300 * 1000,	.index = 1050 * 1000},
+	{.frequency = 400 * 1000,	.index = 1125 * 1000},
+        {.frequency = 600 * 1000,       .index = 1250 * 1000},
 	{.frequency = CPUFREQ_TABLE_END},
 };
 
 static struct cpufreq_frequency_table dvfs_ddr_table[] = {
-	{.frequency = 200 * 1000 + DDR_FREQ_SUSPEND,    .index = 950 * 1000},
-	{.frequency = 300 * 1000 + DDR_FREQ_VIDEO,      .index = 1100 * 1000},
+	{.frequency = 200 * 1000 + DDR_FREQ_SUSPEND,    .index = 1000 * 1000},
+	{.frequency = 300 * 1000 + DDR_FREQ_VIDEO,      .index = 1050 * 1000},
 	{.frequency = 400 * 1000 + DDR_FREQ_NORMAL,     .index = 1100 * 1000},
 	{.frequency = CPUFREQ_TABLE_END},
 };
+#else 
+//chenliang
+static struct cpufreq_frequency_table dvfs_arm_table[] = {
+	{.frequency = 312 * 1000,       .index = 1025 * 1000},
+	{.frequency = 504 * 1000,       .index = 1025 * 1000},
+	{.frequency = 816 * 1000,       .index = 1050 * 1000},
+	{.frequency = 1008 * 1000,      .index = 1125 * 1000},
+	{.frequency = 1200 * 1000,      .index = 1200 * 1000},
+	{.frequency = CPUFREQ_TABLE_END},
+};
 
+static struct cpufreq_frequency_table dvfs_gpu_table[] = {
+	{.frequency = 100 * 1000,	.index = 1000 * 1000},
+	{.frequency = 200 * 1000,	.index = 1000 * 1000},
+	{.frequency = 266 * 1000,	.index = 1050 * 1000},
+	{.frequency = 300 * 1000,	.index = 1050 * 1000},
+	{.frequency = 400 * 1000,	.index = 1125 * 1000},
+        {.frequency = 600 * 1000,       .index = 1250 * 1000},
+	{.frequency = CPUFREQ_TABLE_END},
+};
+
+static struct cpufreq_frequency_table dvfs_ddr_table[] = {
+	{.frequency = 200 * 1000 + DDR_FREQ_SUSPEND,    .index = 1000 * 1000},
+	{.frequency = 240 * 1000 + DDR_FREQ_VIDEO,      .index = 1050 * 1000},
+	{.frequency = 300 * 1000 + DDR_FREQ_NORMAL,     .index = 1075 * 1000},
+	{.frequency = CPUFREQ_TABLE_END},
+};
+#endif
 //#define DVFS_CPU_TABLE_SIZE	(ARRAY_SIZE(dvfs_cpu_logic_table))
 //static struct cpufreq_frequency_table cpu_dvfs_table[DVFS_CPU_TABLE_SIZE];
 //static struct cpufreq_frequency_table dep_cpu2core_table[DVFS_CPU_TABLE_SIZE];
+int get_max_freq(struct cpufreq_frequency_table *table)
+{
+	int i,temp=0;
+	
+	for(i=0;table[i].frequency!= CPUFREQ_TABLE_END;i++)
+	{
+		if(temp<table[i].frequency)
+			temp=table[i].frequency;
+	}	
+	printk("get_max_freq=%d\n",temp);
+	return temp;
+}
 
 void __init board_clock_init(void)
 {
-	rk30_clock_data_init(periph_pll_default, codec_pll_default, RK30_CLOCKS_DEFAULT_FLAGS);
+	u32 flags=RK30_CLOCKS_DEFAULT_FLAGS;
+#if !defined(CONFIG_ARCH_RK3188)
+	if(get_max_freq(dvfs_gpu_table)<=(400*1000))
+	{	
+		flags=RK30_CLOCKS_DEFAULT_FLAGS|CLK_GPU_GPLL;
+	}
+	else
+		flags=RK30_CLOCKS_DEFAULT_FLAGS|CLK_GPU_CPLL;
+#endif
+	rk30_clock_data_init(periph_pll_default, codec_pll_default, flags);
 	//dvfs_set_arm_logic_volt(dvfs_cpu_logic_table, cpu_dvfs_table, dep_cpu2core_table);
 	dvfs_set_freq_volt_table(clk_get(NULL, "cpu"), dvfs_arm_table);
 	dvfs_set_freq_volt_table(clk_get(NULL, "gpu"), dvfs_gpu_table);

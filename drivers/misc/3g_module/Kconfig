@@ -3,7 +3,7 @@
 #
 
 menuconfig 3G_MODULE
-	tristate "3G module for phonepad"
+	tristate "3G module for mid"
 	---help---
 	  Say Y here if you have a support modem
 
@@ -23,9 +23,8 @@ choice
     config SEW868
 	bool "SEW868"	
 
-    config MI700
-	bool "MI700"	
-config SC6610
-	bool "SC6610"	
+  
+
+
 endchoice
 

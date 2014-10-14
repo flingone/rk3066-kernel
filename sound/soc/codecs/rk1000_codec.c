@@ -27,7 +27,7 @@
 #include <sound/initval.h>
 #include <mach/gpio.h>
 #include <mach/iomux.h>
-
+#include <linux/display-sys.h>
 #include "rk1000_codec.h"
 
 #ifdef CONFIG_ARCH_RK29
@@ -82,6 +82,8 @@ struct rk1000_codec_priv {
 	struct snd_soc_codec codec;
 	struct snd_pcm_hw_constraint_list *sysclk_constraints;
 	u16 reg_cache[RK1000_CODEC_NUM_REG];
+	int io_pwr_pin;
+	int io_spk_pin;
 };
 
 static void rk1000_codec_reg_set(void);
@@ -499,7 +501,6 @@ static int rk1000_codec_pcm_startup(struct snd_pcm_substream *substream,
 #endif
 	return 0;
 }
-
 static int gAudioNLPCM=0;
 static int rk1000_codec_mute(struct snd_soc_dai *dai, int mute);
 static int rk1000_codec_pcm_hw_params(struct snd_pcm_substream *substream,
@@ -529,7 +530,6 @@ static int rk1000_codec_pcm_hw_params(struct snd_pcm_substream *substream,
 	}else if(HW_PARAMS_FLAG_LPCM == params->flags){
 		gAudioNLPCM=0;
 	}
-
 	if (params->flags == HW_PARAMS_FLAG_EQVOL_ON)
 	{
 		u16 r17 = rk1000_codec_read_reg_cache(codec, ACCELCODEC_R17);
@@ -608,10 +608,8 @@ void PhaseIn(struct snd_soc_codec *codec,u32 nStep, u32 us)
         rk1000_codec_write(codec,ACCELCODEC_R18, 0x00|ASC_OUTPUT_ACTIVE|ASC_CROSSZERO_EN); //gVolReg|ASC_OUTPUT_ACTIVE|ASC_CROSSZERO_EN);  //AOR
         udelay(us);
 }
-
-static int rk1000_codec_mute(struct snd_soc_dai *dai, int mute)
+static int rk1000_codec_mute_l(struct snd_soc_codec *codec, int mute)
 {
-    struct snd_soc_codec *codec = dai->codec;
 
     DBG("Enter::%s----%d--mute=%d\n",__FUNCTION__,__LINE__,mute);
 
@@ -626,7 +624,7 @@ static int rk1000_codec_mute(struct snd_soc_dai *dai, int mute)
 
         PhaseOut(codec,1, 5000);
         rk1000_codec_write(codec,ACCELCODEC_R19, 0xFF);  //AOM
-        rk1000_codec_write(codec,ACCELCODEC_R04, ASC_INT_MUTE_L|ASC_INT_MUTE_R|ASC_SIDETONE_L_OFF|ASC_SIDETONE_R_OFF);  //soft mute   
+        rk1000_codec_write(codec,ACCELCODEC_R04, ASC_INT_MUTE_L|ASC_INT_MUTE_R|ASC_SIDETONE_L_OFF|ASC_SIDETONE_R_OFF);  //soft mute
     }else{		
         rk1000_codec_write(codec,ACCELCODEC_R1D, 0x2a);  //setup Vmid and Vref, other module power down
         rk1000_codec_write(codec,ACCELCODEC_R1E, 0x40);  ///|ASC_PDASDML_ENABLE);
@@ -644,6 +642,13 @@ static int rk1000_codec_mute(struct snd_soc_dai *dai, int mute)
     return 0;
 }
 
+static int rk1000_codec_mute(struct snd_soc_dai *dai, int mute)
+{
+    struct snd_soc_codec *codec = dai->codec;
+    DBG("Enter::%s----%d--mute=%d\n",__FUNCTION__,__LINE__,mute);
+
+    return rk1000_codec_mute_l(codec, mute);
+}
 static int rk1000_codec_set_bias_level(struct snd_soc_codec *codec,
 				 enum snd_soc_bias_level level)
 {
@@ -695,7 +700,7 @@ static int rk1000_codec_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-#define RK1000_CODEC_RATES SNDRV_PCM_RATE_8000_96000
+#define RK1000_CODEC_RATES SNDRV_PCM_RATE_8000_192000
 
 #define RK1000_CODEC_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
 	SNDRV_PCM_FMTBIT_S24_LE)
@@ -717,7 +722,7 @@ struct snd_soc_dai rk1000_codec_dai = {
 	.playback = {
 		.stream_name = "Playback",
 		.channels_min = 1,
-		.channels_max = 2,
+		.channels_max = 8,
 		.rates = RK1000_CODEC_RATES,
 		.formats = RK1000_CODEC_FORMATS,
 	},
@@ -778,6 +783,31 @@ static int rk1000_codec_resume(struct platform_device *pdev)
 }
 
 static struct snd_soc_codec *rk1000_codec_codec;
+//added for rk1000 codec early suspend
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+static struct early_suspend rk1000_codec_early_suspend;
+
+static void rk1000_codec_esuspend(struct early_suspend *h)
+{
+
+    struct snd_soc_codec *codec = rk1000_codec_codec;
+    printk("Enter::%s----%d\n",__FUNCTION__,__LINE__);
+
+    rk1000_codec_mute_l(codec, 1);
+
+}
+
+static void rk1000_codec_eresume(struct early_suspend *h)
+{
+    struct snd_soc_codec *codec = rk1000_codec_codec;
+    printk("Enter::%s----%d\n",__FUNCTION__,__LINE__);
+
+    rk1000_codec_mute_l(codec, 0);
+
+}
+#endif
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37))
 static int rk1000_codec_probe(struct snd_soc_codec *codec)
 {
@@ -846,10 +876,35 @@ static int rk1000_codec_probe(struct platform_device *pdev)
     }
     gpio_set_value(RK1000_SPK_CTRL_PIN, GPIO_HIGH);
     gpio_direction_output(RK1000_SPK_CTRL_PIN, GPIO_HIGH);
+#else
+	if(rk1000_codec->io_pwr_pin != INVALID_GPIO) {
+		ret = gpio_request(rk1000_codec->io_pwr_pin, "rk1000 pwr ctrl");
+		if (ret) {
+        	printk("rk1000 codec request pwr gpio fail\n");
+        	//goto err1;
+    	}
+	}
+	if(rk1000_codec->io_spk_pin != INVALID_GPIO) {
+		ret = gpio_request(rk1000_codec->io_spk_pin, "rk1000 spk ctrl");
+		if(!ret) {
+    		gpio_direction_output(rk1000_codec->io_spk_pin, GPIO_HIGH);
+			gpio_set_value(rk1000_codec->io_spk_pin, GPIO_HIGH);
+		}else {
+			printk("rk1000 codec request spk gpio fail\n");
+        	//goto err1;
+		}
+	}
 #endif
     
     rk1000_codec_reg_set();
+#ifdef CONFIG_HAS_EARLYSUSPEND
+    rk1000_codec_early_suspend.suspend = rk1000_codec_esuspend;
+    rk1000_codec_early_suspend.resume = rk1000_codec_eresume;
+    rk1000_codec_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 200;
 
+    register_early_suspend(&rk1000_codec_early_suspend);
+    printk("register rk1000 codec earlysuspend ok\n");
+#endif
 	return ret;
 	
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 37))
@@ -866,6 +921,9 @@ pcm_err:
 static int rk1000_codec_remove(struct snd_soc_codec *codec)
 {
 	rk1000_codec_set_bias_level(codec, SND_SOC_BIAS_OFF);
+#ifdef CONFIG_HAS_EARLYSUSPEND
+    unregister_early_suspend(&rk1000_codec_early_suspend);
+#endif
 	return 0;
 }
 #else
@@ -875,6 +933,9 @@ static int rk1000_codec_remove(struct platform_device *pdev)
     printk("rk1000_codec_remove\n");
 	snd_soc_free_pcms(socdev);
 	snd_soc_dapm_free(socdev);
+#ifdef CONFIG_HAS_EARLYSUSPEND
+    unregister_early_suspend(&rk1000_codec_early_suspend);
+#endif
 	return 0;
 }
 #endif
@@ -1061,10 +1122,8 @@ static void rk1000_codec_reg_set(void)
     rk1000_codec_write(codec,ACCELCODEC_R0C, 0x10|ASC_INPUT_VOL_0DB|ASC_INPUT_MUTE);   //LIL
     rk1000_codec_write(codec,ACCELCODEC_R0D, 0x10|ASC_INPUT_VOL_0DB);   //LIR
     rk1000_codec_write(codec,ACCELCODEC_R0E, 0x10|ASC_INPUT_VOL_0DB);   //MIC
-    /*$_rbox_$_modify_$_zhangxueguang_begin$_20120502_$*/
     //rk1000_codec_write(codec,ACCELCODEC_R12, 0x4c|ASC_MIC_INPUT|ASC_MIC_BOOST_20DB);  //mic input and boost 20dB
     rk1000_codec_write(codec,ACCELCODEC_R12, 0x4c|ASC_MIC_INPUT|ASC_MIC_BOOST_0DB);
-    /*$_rbox_$_modify_$_zhangxueguang_end$_20120502_$*/
     rk1000_codec_write(codec,ACCELCODEC_R13, ASC_LPGAMX_DISABLE|ASC_ALMX_DISABLE|((LINE_2_MIXER_GAIN & 0x7) << 4)|0x0);
     rk1000_codec_write(codec,ACCELCODEC_R14, ASC_RPGAMX_DISABLE|ASC_ARMX_DISABLE|((LINE_2_MIXER_GAIN & 0x7) << 4)|0x0);
     gR1314Reg = ASC_RPGAMX_DISABLE|ASC_ARMX_DISABLE|((LINE_2_MIXER_GAIN & 0x7) << 4)|0x0;
@@ -1097,10 +1156,8 @@ static void rk1000_codec_reg_set(void)
     rk1000_codec_write(codec,ACCELCODEC_R0C, 0x10|ASC_INPUT_VOL_0DB|ASC_INPUT_MUTE);   //LIL
     rk1000_codec_write(codec,ACCELCODEC_R0D, 0x10|ASC_INPUT_VOL_0DB);   //LIR
     rk1000_codec_write(codec,ACCELCODEC_R0E, 0x10|ASC_INPUT_VOL_0DB);   //MIC
-    /*$_rbox_$_modify_$_zhangxueguang_begin$_20120426_$*/
     //rk1000_codec_write(codec,ACCELCODEC_R12, 0x4c|ASC_MIC_INPUT|ASC_MIC_BOOST_20DB);  //mic input and boost 20dB
     rk1000_codec_write(codec,ACCELCODEC_R12, 0x4c|ASC_MIC_INPUT|ASC_MIC_BOOST_0DB);
-    /*$_rbox_$_modify_$_zhangxueguang_end$_20120426_$*/
     rk1000_codec_write(codec,ACCELCODEC_R13, 0x00);
     rk1000_codec_write(codec,ACCELCODEC_R14, 0x00);
     gR1314Reg = 0x00;
@@ -1126,12 +1183,23 @@ static int rk1000_codec_i2c_probe(struct i2c_client *i2c,
 			    const struct i2c_device_id *id)
 {
 	struct rk1000_codec_priv *rk1000_codec;
+	struct rkdisplay_platform_data *tv_data;
 	int ret;
 	
 	rk1000_codec = kzalloc(sizeof(struct rk1000_codec_priv), GFP_KERNEL);
 	if (rk1000_codec == NULL)
 		return -ENOMEM;
-		
+	
+	if(i2c->dev.platform_data) {
+		tv_data = i2c->dev.platform_data;
+		rk1000_codec->io_pwr_pin = tv_data->io_pwr_pin;
+		rk1000_codec->io_spk_pin = tv_data->io_switch_pin;
+	}
+	else {
+		rk1000_codec->io_pwr_pin = INVALID_GPIO;
+		rk1000_codec->io_spk_pin = INVALID_GPIO;
+	}
+	
 	i2c_set_clientdata(i2c, rk1000_codec);
 	rk1000_codec->control_type = SND_SOC_I2C;
 	

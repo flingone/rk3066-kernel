@@ -89,6 +89,10 @@ enum {
 	PMIC_TYPE_TPS65910 =2,
 	PMIC_TYPE_ACT8931 =3,
 	PMIC_TYPE_ACT8846 =3,
+	PMIC_TYPE_RK808 =4,
+	PMIC_TYPE_RICOH619 =5,
+	PMIC_TYPE_RT5025 =6,
+	PMIC_TYPE_RK818 =7,
 	PMIC_TYPE_MAX,
 };
 extern __sramdata  int g_pmic_type;
@@ -96,6 +100,10 @@ extern __sramdata  int g_pmic_type;
 #define pmic_is_tps65910()  (g_pmic_type == PMIC_TYPE_TPS65910)
 #define pmic_is_act8931()  (g_pmic_type == PMIC_TYPE_ACT8931)
 #define pmic_is_act8846()  (g_pmic_type == PMIC_TYPE_ACT8846)
+#define pmic_is_rk808()  (g_pmic_type == PMIC_TYPE_RK808)
+#define pmic_is_ricoh619()  (g_pmic_type == PMIC_TYPE_RICOH619)
+#define pmic_is_rt5025()  (g_pmic_type == PMIC_TYPE_RT5025)
+#define pmic_is_rk818()  (g_pmic_type == PMIC_TYPE_RK818)
 
 struct  pmu_info {
 	char		*name;
@@ -126,6 +134,12 @@ struct rksdmmc_gpio_board {
     struct rksdmmc_gpio   data1_gpio;    
     struct rksdmmc_gpio   data2_gpio;
     struct rksdmmc_gpio   data3_gpio;
+#define USE_SDMMC_DATA4_DATA7  /*In order to be compatible with old project, which have not define the member used for eMMC */    
+    struct rksdmmc_gpio   data4_gpio;
+    struct rksdmmc_gpio   data5_gpio;    
+    struct rksdmmc_gpio   data6_gpio;
+    struct rksdmmc_gpio   data7_gpio;
+    struct rksdmmc_gpio   rstnout_gpio;
    
     struct rksdmmc_gpio   detect_irq;    
     struct rksdmmc_gpio   power_en_gpio;   
@@ -154,7 +168,8 @@ struct rk29_sdmmc_platform_data {
 	char dma_name[8];
 	int (*io_init)(void);
 	int (*io_deinit)(void);
-	void (*set_iomux)(int device_id, unsigned int bus_width);//added by xbw at 2011-10-13
+	void (*set_iomux)(int device_id, unsigned int bus_width);//added by xbw at 2011-10-13	
+	int (*emmc_is_selected)(int device_id);
 	int (*status)(struct device *);
 	int (*register_status_notify)(void (*callback)(int card_present, void *dev_id), void *dev_id);
 	int detect_irq;
@@ -164,7 +179,9 @@ struct rk29_sdmmc_platform_data {
 	int enable_sd_wakeup;
 	int write_prt;
 	int write_prt_enalbe_level;
-	unsigned int sdio_INT_gpio; 
+	unsigned int sdio_INT_gpio;
+	int sdio_INT_level;
+#define USE_SDIO_INT_LEVEL  /*In order to be compatible with old project, those who do not define the member  sdio_INT_level */
 	struct rksdmmc_gpio   det_pin_info;
         int (*sd_vcc_reset)(void);
 };
@@ -181,23 +198,39 @@ struct gsensor_platform_data {
 	void (*exit_platform_hw)(void);
 };
 
+struct usb4604_platform_data{
+    void (* usb4604_platform_hw_init)(void);
+};
+
 struct akm8975_platform_data {
 	short m_layout[4][3][3];
 	char project_name[64];
 	int gpio_DRDY;
 };
 
+struct akm_platform_data {
+       short m_layout[4][3][3];
+       char project_name[64];
+       char layout;
+       char outbit;
+       int gpio_DRDY;
+       int gpio_RST;
+};
+
+
 struct sensor_platform_data {
 	int type;
 	int irq;
 	int power_pin;
 	int reset_pin;
+	int standby_pin;
 	int irq_enable;         //if irq_enable=1 then use irq else use polling  
 	int poll_delay_ms;      //polling
 	int x_min;              //filter
 	int y_min;
 	int z_min;
 	int factory;
+	int layout;
 	unsigned char address;
 	signed char orientation[9];
 	short m_layout[4][3][3];
@@ -212,11 +245,21 @@ struct sensor_platform_data {
 struct board_id_platform_data {
 	int gpio_pin[32];
 	int num_gpio;
-	int (*init_platform_hw)(void);	
+	char *board_id_buf;
+	int (*init_platform_hw)(void);
 	int (*exit_platform_hw)(void);
+	struct board_device_table *device_table;
+	int device_table_size;
 	int (*init_parameter)(int id);  
 };
 
+struct ft5506_platform_data {
+    int     (*get_pendown_state)(void);
+    int     (*init_platform_hw)(void);
+    int     (*platform_sleep)(void);
+    int     (*platform_wakeup)(void);
+    void    (*exit_platform_hw)(void);
+};
 struct cm3217_platform_data {
 	int irq_pin;
 	int power_pin;
@@ -244,8 +287,11 @@ struct rk29_vmac_platform_data {
 	int (*rmii_io_deinit)(void);
 	int (*rmii_power_control)(int enable);
         int(*rmii_speed_switch)(int speed);
+        int(*rmii_extclk_sel)(void);
 };
 /* adc battery */
+#define LCDC_ON 0x0001
+#define BACKLIGHT_ON 0x0002
 struct rk30_adc_battery_platform_data {
 	int (*io_init)(void);
 	int (*io_deinit)(void);
@@ -300,6 +346,9 @@ struct rk30_adc_battery_platform_data {
 	int  *charge_table;
 	int  *property_tabel;
 	int *board_batt_table;
+	int chargeArray[11];
+	int dischargeArray[11];
+
 
 };
 
@@ -324,6 +373,30 @@ struct goodix_platform_data {
 	void (*exit_platform_hw)(void);
 };
 
+struct tp_platform_data {
+	int model;
+	int x_max;
+	int y_max;
+	int reset_pin;
+	int irq_pin ;
+	int firmVer;
+	int (*get_pendown_state)(void);
+	int (*init_platform_hw)(void);
+	int (*platform_sleep)(void);
+	int (*platform_wakeup)(void);
+	void (*exit_platform_hw)(void);
+};
+
+
+struct codec_platform_data {
+	int spk_pin;
+	int hp_pin ;
+};
+
+struct ac_usb_switch_platform_data {
+	int usb_switch_pin;
+	int pc_state_pin ;
+};
 struct ct360_platform_data {
 	u16		model;
 	u16		x_max;
@@ -400,6 +473,8 @@ struct eeti_egalax_platform_data {
 struct ts_hw_data {
 	int reset_gpio;
 	int touch_en_gpio;
+	int max_x;
+	int max_y;
 	int (*init_platform_hw)(void);
 };
 
@@ -441,6 +516,13 @@ struct rk610_codec_platform_data {
 	unsigned int spk_ctl_io;
 	int (*io_init)(void);
 	int boot_depop;//if found boot pop,set boot_depop 1 test
+	/*
+		Some amplifiers enable a longer time.
+		config after pa_enable_io delay pa_enable_time(ms)
+		default = 0,preferably not more than 1000ms
+		so value range is 0 - 1000.
+	*/
+	unsigned int pa_enable_time;
 };
 
 struct rk_hdmi_platform_data {
@@ -457,8 +539,24 @@ struct rk_hdmi_platform_data {
 #define BOOT_MODE_WATCHDOG		8
 int board_boot_mode(void);
 
+static inline const char *boot_mode_name(u32 mode)
+{
+	switch (mode) {
+	case BOOT_MODE_NORMAL: return "NORMAL";
+	case BOOT_MODE_FACTORY2: return "FACTORY2";
+	case BOOT_MODE_RECOVERY: return "RECOVERY";
+	case BOOT_MODE_CHARGE: return "CHARGE";
+	case BOOT_MODE_POWER_TEST: return "POWER_TEST";
+	case BOOT_MODE_OFFMODE_CHARGING: return "OFFMODE_CHARGING";
+	case BOOT_MODE_REBOOT: return "REBOOT";
+	case BOOT_MODE_PANIC: return "PANIC";
+	case BOOT_MODE_WATCHDOG: return "WATCHDOG";
+	default: return "";
+	}
+}
+
 /* for USB detection */
-#ifdef CONFIG_USB_GADGET
+#if defined(CONFIG_USB_GADGET) && !defined(CONFIG_RK_USB_DETECT_BY_OTG_BVALID)
 int __init board_usb_detect_init(unsigned gpio);
 #else
 static int inline board_usb_detect_init(unsigned gpio) { return 0; }
@@ -481,6 +579,7 @@ void __init board_mem_reserved(void);
 
 extern struct rk29_sdmmc_platform_data default_sdmmc0_data;
 extern struct rk29_sdmmc_platform_data default_sdmmc1_data;
+extern struct rk29_sdmmc_platform_data default_sdmmc2_data;
 
 extern struct i2c_gpio_platform_data default_i2c_gpio_data;
 extern struct rk29_vmac_platform_data board_vmac_data;
@@ -495,9 +594,7 @@ void __sramfunc board_pmu_resume(void);
  * For DDR frequency scaling setup. Board code something like this:
  *
  * This array _must_ be sorted in ascending frequency (without DDR_FREQ_*) order.
- * 必须按频率（不必考虑DDR_FREQ_*）递增。
- *static struct cpufreq_frequency_table dvfs_ddr_table[] = {
- *	{.frequency = 200 * 1000 + DDR_FREQ_SUSPEND,	.index = xxxx * 1000},
+ * static struct cpufreq_frequency_table dvfs_ddr_table[] = {
  *	{.frequency = 200 * 1000 + DDR_FREQ_IDLE,	.index = xxxx * 1000},
  *	{.frequency = 300 * 1000 + DDR_FREQ_VIDEO,	.index = xxxx * 1000},
  *	{.frequency = 400 * 1000 + DDR_FREQ_NORMAL,	.index = xxxx * 1000},
@@ -505,10 +602,12 @@ void __sramfunc board_pmu_resume(void);
  *};
  */
 enum ddr_freq_mode {
-	DDR_FREQ_NORMAL = 1,	// default
-	DDR_FREQ_VIDEO,		// when video is playing
-	DDR_FREQ_IDLE,		// when screen is idle
-	DDR_FREQ_SUSPEND,	// when early suspend
+	DDR_FREQ_SUSPEND=(0x1<<0),	// when early suspend
+	DDR_FREQ_VIDEO=(0x1<<1),		// when video is playing
+	DDR_FREQ_VIDEO_LOW=(0x1<<2),                // when video is playing low
+	DDR_FREQ_DUALVIEW=(0x1<<3),     // when dual view,lcdc0 and lcdc1 open at the same time
+	DDR_FREQ_IDLE=(0x1<<4),		// when screen is idle
+	DDR_FREQ_NORMAL=(0x1<<8),      // default
 };
 
 #endif

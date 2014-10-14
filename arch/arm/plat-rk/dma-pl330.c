@@ -1239,6 +1239,7 @@ static int pl330_remove(struct platform_device *pdev)
 {
 	struct rk29_pl330_dmac *dmac, *d;
 	struct rk29_pl330_chan *ch;
+	struct rk29_pl330_chan *ch_temp;
 	unsigned long flags;
 	int del, found;
 
@@ -1262,7 +1263,7 @@ static int pl330_remove(struct platform_device *pdev)
 	dmac = d;
 
 	/* Remove all Channels that are managed only by this DMAC */
-	list_for_each_entry(ch, &chan_list, node) {
+	list_for_each_entry_safe(ch, ch_temp, &chan_list, node) {
 
 		/* Only channels that are handled by this DMAC */
 		if (iface_of_dmac(dmac, ch->id))
@@ -1308,7 +1309,7 @@ static int __init pl330_init(void)
 {
 	return platform_driver_register(&pl330_driver);
 }
-module_init(pl330_init);
+arch_initcall_sync(pl330_init);
 
 static void __exit pl330_exit(void)
 {

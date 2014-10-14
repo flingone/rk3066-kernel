@@ -44,6 +44,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/rfkill-rk.h>
 #include <linux/sensor-dev.h>
+#include <plat/ddr.h>
 #if defined(CONFIG_HDMI_RK30)
 	#include "../../../drivers/video/rockchip/hdmi/rk_hdmi.h"
 #endif
@@ -68,6 +69,17 @@
 #endif
 
 #include <plat/key.h>
+
+/* Android Parameter */
+static int ap_mdm = 0;
+module_param(ap_mdm, int, 0644);
+static int ap_has_alsa = 0;
+module_param(ap_has_alsa, int, 0644);
+static int ap_data_only = 2;
+module_param(ap_data_only, int, 0644);
+static int ap_has_earphone = 0;
+module_param(ap_has_earphone, int, 0644);
+
 
 static struct rk29_keys_button key_button[] = {
 	#if 0
@@ -183,10 +195,98 @@ struct rk29_keys_platform_data rk29_keys_pdata = {
 #define RK30_IPP_MEM_SIZE 8*SZ_1M
 #endif
 #ifdef CONFIG_VIDEO_RK29
+#include <plat/rk_camera.h>
+/* Notes:
+
+Simple camera device registration:
+
+       new_camera_device(sensor_name,\       // sensor name, it is equal to CONFIG_SENSOR_X
+                          face,\              // sensor face information, it can be back or front
+                          pwdn_io,\           // power down gpio configuration, it is equal to CONFIG_SENSOR_POWERDN_PIN_XX
+                          flash_attach,\      // sensor is attach flash or not
+                          mir,\               // sensor image mirror and flip control information
+                          i2c_chl,\           // i2c channel which the sensor attached in hardware, it is equal to CONFIG_SENSOR_IIC_ADAPTER_ID_X
+                          cif_chl)  \         // cif channel which the sensor attached in hardware, it is equal to CONFIG_SENSOR_CIF_INDEX_X
+
+Comprehensive camera device registration:
+
+      new_camera_device_ex(sensor_name,\
+                             face,\
+                             ori,\            // sensor orientation, it is equal to CONFIG_SENSOR_ORIENTATION_X
+                             pwr_io,\         // sensor power gpio configuration, it is equal to CONFIG_SENSOR_POWER_PIN_XX
+                             pwr_active,\     // sensor power active level, is equal to CONFIG_SENSOR_RESETACTIVE_LEVEL_X
+                             rst_io,\         // sensor reset gpio configuration, it is equal to CONFIG_SENSOR_RESET_PIN_XX
+                             rst_active,\     // sensor reset active level, is equal to CONFIG_SENSOR_RESETACTIVE_LEVEL_X
+                             pwdn_io,\
+                             pwdn_active,\    // sensor power down active level, is equal to CONFIG_SENSOR_POWERDNACTIVE_LEVEL_X
+                             flash_attach,\
+                             res,\            // sensor resolution, this is real resolution or resoltuion after interpolate
+                             mir,\
+                             i2c_chl,\
+                             i2c_spd,\        // i2c speed , 100000 = 100KHz
+                             i2c_addr,\       // the i2c slave device address for sensor
+                             cif_chl,\
+                             mclk)\           // sensor input clock rate, 24 or 48
+                          
+*/
+static struct rkcamera_platform_data new_camera[] = {                          
+    # if 0
+    new_camera_device(RK29_CAM_SENSOR_OV2659,
+                        back,
+                        RK30_PIN1_PD6,
+                        0,
+                        0,
+                        3,
+                        0),  
+    new_camera_device(RK29_CAM_SENSOR_OV2659,
+                        front,
+                        RK30_PIN1_PB7,
+                        0,
+                        0,
+                        3,
+                        0),
+    # else
+    new_camera_device_ex(RK29_CAM_SENSOR_OV2659,
+			    back,
+			    0,
+			    INVALID_VALUE,
+			    INVALID_VALUE,
+			    INVALID_VALUE,
+			    INVALID_VALUE,
+			    RK30_PIN1_PD6,
+			    CONS(RK29_CAM_SENSOR_OV2659,_PWRDN_ACTIVE),
+			    false,
+			    CONS(RK29_CAM_SENSOR_OV2659,_FULL_RESOLUTION),
+			    0,
+			    3,
+			    250000,
+			    CONS(RK29_CAM_SENSOR_OV2659,_I2C_ADDR),
+			    0,
+			    24),
+		new_camera_device_ex(RK29_CAM_SENSOR_OV2659,
+			    front,
+			    0,
+			    INVALID_VALUE,
+			    INVALID_VALUE,
+			    INVALID_VALUE,
+			    INVALID_VALUE,
+			    RK30_PIN1_PB7,
+			    CONS(RK29_CAM_SENSOR_OV2659,_PWRDN_ACTIVE),
+			    false,
+			    CONS(RK29_CAM_SENSOR_OV2659,_FULL_RESOLUTION),
+			    0,
+			    3,
+			    250000,
+			    CONS(RK29_CAM_SENSOR_OV2659,_I2C_ADDR),
+			    0,
+			    24),
+    # endif
+    new_camera_device_end
+};
 /*---------------- Camera Sensor Macro Define Begin  ------------------------*/
 /*---------------- Camera Sensor Configuration Macro Begin ------------------------*/
 #define CONFIG_SENSOR_0 RK29_CAM_SENSOR_OV2659						/* back camera sensor */
-#define CONFIG_SENSOR_IIC_ADDR_0		0x60
+#define CONFIG_SENSOR_IIC_ADDR_0		0x00
 #define CONFIG_SENSOR_IIC_ADAPTER_ID_0	  3
 #define CONFIG_SENSOR_CIF_INDEX_0                    0
 #define CONFIG_SENSOR_ORIENTATION_0 	  90
@@ -255,7 +355,7 @@ struct rk29_keys_platform_data rk29_keys_pdata = {
 #define CONFIG_SENSOR_720P_FPS_FIXED_02      30000
 
 #define CONFIG_SENSOR_1 RK29_CAM_SENSOR_OV2659                      /* front camera sensor 0 */
-#define CONFIG_SENSOR_IIC_ADDR_1 	    0x60
+#define CONFIG_SENSOR_IIC_ADDR_1 	    0x00
 #define CONFIG_SENSOR_IIC_ADAPTER_ID_1	  3
 #define CONFIG_SENSOR_CIF_INDEX_1				  0
 #define CONFIG_SENSOR_ORIENTATION_1       270
@@ -340,18 +440,31 @@ struct rk29_keys_platform_data rk29_keys_pdata = {
 #define CONFIG_SENSOR_POWERDOWN_IOCTL_USR	   0
 #define CONFIG_SENSOR_FLASH_IOCTL_USR	   0
 
-static void rk_cif_power(int on)
+static void rk_cif_power(struct rk29camera_gpio_res *res,int on)
 {
     struct regulator *ldo_18,*ldo_28;
+	int camera_power = res->gpio_power;
+	  int camera_ioflag = res->gpio_flag;
+	  int camera_io_init = res->gpio_init;
 	ldo_28 = regulator_get(NULL, "ldo7");	// vcc28_cif
 	ldo_18 = regulator_get(NULL, "ldo1");	// vcc18_cif
-
+	if (ldo_28 == NULL || IS_ERR(ldo_28) || ldo_18 == NULL || IS_ERR(ldo_18)){
+        printk("get cif ldo failed!\n");
+		return;
+	    }
     if(on == 0){	
+		while(regulator_is_enabled(ldo_28)>0)	
     	regulator_disable(ldo_28);
     	regulator_put(ldo_28);
+		while(regulator_is_enabled(ldo_18)>0)
     	regulator_disable(ldo_18);
     	regulator_put(ldo_18);
-    	mdelay(500);
+    	mdelay(10);
+	if (camera_power != INVALID_GPIO)  {
+		  if (camera_io_init & RK29_CAM_POWERACTIVE_MASK) {
+			  gpio_set_value(camera_power, (((~camera_ioflag)&RK29_CAM_POWERACTIVE_MASK)>>RK29_CAM_POWERACTIVE_BITPOS));
+			}
+		}
         }
     else{
     	regulator_set_voltage(ldo_28, 2800000, 2800000);
@@ -364,14 +477,21 @@ static void rk_cif_power(int on)
     	regulator_enable(ldo_18);
     //	printk("%s set ldo1 vcc18_cif=%dmV end\n", __func__, regulator_get_voltage(ldo));
     	regulator_put(ldo_18);
+	if (camera_power != INVALID_GPIO)  {
+		  if (camera_io_init & RK29_CAM_POWERACTIVE_MASK) {
+			gpio_set_value(camera_power, ((camera_ioflag&RK29_CAM_POWERACTIVE_MASK)>>RK29_CAM_POWERACTIVE_BITPOS));
+			mdelay(10);
         }
+	}
+    }
 }
 
 #if CONFIG_SENSOR_POWER_IOCTL_USR
 static int sensor_power_usr_cb (struct rk29camera_gpio_res *res,int on)
 {
 	//#error "CONFIG_SENSOR_POWER_IOCTL_USR is 1, sensor_power_usr_cb function must be writed!!";
-    rk_cif_power(on);
+    rk_cif_power(res,on);
+	return 0;
 }
 #endif
 
@@ -810,6 +930,7 @@ static int rk29_backlight_pwm_resume(void)
 }
 
 static struct rk29_bl_info rk29_bl_info = {
+        .pre_div = 30*1000,
 	.pwm_id = PWM_ID,
 	.bl_ref = PWM_EFFECT_VALUE,
 	.io_init = rk29_backlight_io_init,
@@ -1006,7 +1127,7 @@ static struct sensor_platform_data mma8452_info = {
 	.irq_enable = 1,
 	.poll_delay_ms = 30,
         .init_platform_hw = mma8452_init_platform_hw,
-	.orientation = {0, -1, 0, 0, 0, -1, -1, 0, 0},
+	.orientation = {0, -1, 0, -1, 0, 0, 0, 0, -1},
 };
 #endif
 #if defined (CONFIG_GS_LIS3DH)
@@ -1024,7 +1145,7 @@ static struct sensor_platform_data lis3dh_info = {
 	.irq_enable = 1,
 	.poll_delay_ms = 30,
         .init_platform_hw = lis3dh_init_platform_hw,
-	.orientation = {0, -1, 0, 0, 0, -1, -1, 0, 0},
+	.orientation = {1, 0, 0, 0, -1, 0, 0, 0, -1},
 };
 #endif
 
@@ -1408,6 +1529,7 @@ static struct platform_device rk29_device_adc_battery = {
 
 #ifdef CONFIG_ION
 #define ION_RESERVE_SIZE        (80 * SZ_1M)
+#define ION_RESERVE_SIZE_120M   (120 * SZ_1M)
 static struct ion_platform_data rk30_ion_pdata = {
 	.nr = 1,
 	.heaps = {
@@ -1415,7 +1537,7 @@ static struct ion_platform_data rk30_ion_pdata = {
 			.type = ION_HEAP_TYPE_CARVEOUT,
 			.id = ION_NOR_HEAP_ID,
 			.name = "norheap",
-			.size = ION_RESERVE_SIZE,
+//			.size = ION_RESERVE_SIZE,
 		}
 	},
 };
@@ -2075,8 +2197,21 @@ static void __init machine_rk30_board_init(void)
 
 static void __init rk30_reserve(void)
 {
+	int size, ion_reserve_size;
 #ifdef CONFIG_ION
-	rk30_ion_pdata.heaps[0].base = board_mem_reserve_add("ion", ION_RESERVE_SIZE);
+//	rk30_ion_pdata.heaps[0].base = board_mem_reserve_add("ion", ION_RESERVE_SIZE);
+	size = ddr_get_cap() >> 20;
+	if(size >= 1024) { // DDR >= 1G, set ion to 120M
+               rk30_ion_pdata.heaps[0].size = ION_RESERVE_SIZE_120M;
+               ion_reserve_size = ION_RESERVE_SIZE_120M;
+	}
+	else {
+               rk30_ion_pdata.heaps[0].size = ION_RESERVE_SIZE;
+               ion_reserve_size = ION_RESERVE_SIZE;
+	}
+	printk("ddr size = %d M, set ion_reserve_size size to %d\n", size, ion_reserve_size);
+	//rk30_ion_pdata.heaps[0].base = board_mem_reserve_add("ion", ION_RESERVE_SIZE);
+	rk30_ion_pdata.heaps[0].base = board_mem_reserve_add("ion", ion_reserve_size);
 #endif
 #ifdef CONFIG_FB_ROCKCHIP
 	resource_fb[0].start = board_mem_reserve_add("fb0", RK30_FB0_MEM_SIZE);

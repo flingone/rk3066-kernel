@@ -1,8 +1,0 @@
-#
-# VGA drivers configuration
-#
-
-config RK_VGA
-	bool "VGA support"
-	help
-		Support ADV7123 VGA output if you say y here.

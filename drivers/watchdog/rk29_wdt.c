@@ -32,7 +32,6 @@
 #include <linux/clk.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
-
 #include <asm/mach/map.h>
 
 
@@ -137,24 +136,26 @@ static void __rk29_wdt_stop(void)
 	wdt_writel(0x0a, RK29_WDT_CR);
 }
 
-static void rk29_wdt_stop(void)
+void rk29_wdt_stop(void)
 {
 	__rk29_wdt_stop();
 	clk_disable(wdt_clock);
 }
 
-/* timeout unit us */
-static int rk29_wdt_set_heartbeat(int timeout)
+/* timeout unit second */
+int rk29_wdt_set_heartbeat(int timeout)
 {
+	unsigned int count = 0;
+	unsigned int torr = 0, acc = 1, maxtime = 0;	
 	unsigned int freq = clk_get_rate(wdt_clock);
-	unsigned int count;
-	unsigned int torr = 0;
-	unsigned int acc = 1;
 
 	if (timeout < 1)
 		return -EINVAL;
-
-//	freq /= 1000000;
+	//0x80000000 is the max count of watch dog
+	maxtime = 0x80000000 / freq + 1;
+	if(timeout > maxtime)
+		timeout = maxtime;
+		
 	count = timeout * freq;
 	count /= 0x10000;
 
@@ -165,12 +166,12 @@ static int rk29_wdt_set_heartbeat(int timeout)
 	if(torr > 15){
 		torr = 15;
 	}
-	DBG("%s:%d\n", __func__, torr);
+	DBG("%s:torr:%d, count:%d, maxtime:%d s\n", __func__, torr, count, maxtime);
 	wdt_writel(torr, RK29_WDT_TORR);
 	return 0;
 }
 
-static void rk29_wdt_start(void)
+void rk29_wdt_start(void)
 {
 	unsigned long wtcon;
 	clk_enable(wdt_clock);
@@ -375,6 +376,9 @@ static int __devinit rk29_wdt_probe(struct platform_device *pdev)
 
 	wdt_clock = clk_get(&pdev->dev, "wdt");
 	if (IS_ERR(wdt_clock)) {
+		wdt_clock = clk_get(&pdev->dev, "pclk_wdt");
+	}
+	if (IS_ERR(wdt_clock)) {
 		dev_err(dev, "failed to find watchdog clock source\n");
 		ret = PTR_ERR(wdt_clock);
 		goto err_irq;
@@ -487,7 +491,7 @@ static void __exit watchdog_exit(void)
 	platform_driver_unregister(&rk29_wdt_driver);
 }
 
-module_init(watchdog_init);
+subsys_initcall(watchdog_init);
 module_exit(watchdog_exit);
 
 MODULE_AUTHOR("hhb@rock-chips.com");

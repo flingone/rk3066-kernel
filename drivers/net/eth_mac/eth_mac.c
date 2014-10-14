@@ -15,6 +15,7 @@
 #include <linux/fs.h>
 #include <linux/platform_device.h>
 #include <asm/uaccess.h>
+#include <asm/io.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include "eth_mac.h"
@@ -40,6 +41,10 @@ int eth_mac_read_from_IDB(u8 *mac)
         return -EFAULT;
 
     GetSNSectorInfo(tempBuf);
+    /*for (i = 0; i < 512; i++) {
+        printk("%02x, ", tempBuf[i]);
+		if(((i+1)%16) == 0) printk("\n");
+	}*/
 
     for (i = 506; i <= 511; i++)
 		mac[i-506] = tempBuf[i];
@@ -69,7 +74,7 @@ int eth_mac_idb(u8 *eth_mac)
 *大写转小写
 *
 */
-void   to_lower(char   *str) 
+static void   to_lower(char   *str) 
 { 
 	int   i=0; 
 	while(str[i]!=0) 
@@ -86,7 +91,7 @@ void   to_lower(char   *str)
   *
   *
   */
-void  trans( char *src ,int * k) 
+static void  trans( char *src ,int * k) 
 {
     char c;
     int i;
@@ -138,14 +143,13 @@ void  trans( char *src ,int * k)
 
 }
 
-int eth_mac_wifi(u8 *eth_mac){
+/*int eth_mac_wifi(u8 *eth_mac){
 	int i;
 	struct  file *file = NULL;
 	char wifi_mac[32];
 	mm_segment_t old_fs;
 	ssize_t ret;
-
-	int *maci=(int *)kmalloc(6, GFP_KERNEL);
+	int maci[6];
 
 	memset(eth_mac, 0, 6);
 	
@@ -182,11 +186,10 @@ int eth_mac_wifi(u8 *eth_mac){
            	 return -ENOENT;
         }
 
-	kfree(maci);
 	filp_close(file,NULL);
 	return 0;
 	
-}
+}*/
 
 
 

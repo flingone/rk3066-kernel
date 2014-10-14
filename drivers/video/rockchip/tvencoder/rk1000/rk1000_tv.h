@@ -51,8 +51,11 @@ enum {
 	RK1000_TVOUT_YC,
 	RK1000_TVOUT_YPBPR,
 };
-
+#ifdef CONFIG_RK1000_TVOUT_CVBS
 #define RK1000_TVOUT_DEAULT TVOUT_CVBS_NTSC
+#else
+#define RK1000_TVOUT_DEAULT TVOUT_YPbPr_1280x720p_60
+#endif
 
 extern int rk1000_control_write_block(u8 addr, u8 *buf, u8 len);
 extern int rk1000_tv_write_block(u8 addr, u8 *buf, u8 len);

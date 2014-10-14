@@ -13,11 +13,28 @@ if INPUT_TOUCHSCREEN
 
 config CT36X_TS
 	tristate "CT36X touchscreens support"
+choice
+	prompt "ct36x chip select"
+	depends on CT36X_TS
+	default CT365_TS
+
+	config CT365_TS
+	  bool "ct365"
+	config CT363_TS
+	  bool "ct363"
+	config CT361_TS
+	  bool "ct360"
+endchoice
 
 config TOUCHSCREEN_GSLX680
 		tristate "gslX680 touchscreen panel support "
 		depends on I2C2_RK29 || I2C2_RK30
-
+config TOUCHSCREEN_GSLX680_RK3168
+		tristate "gslX680 rk3168 touchscreen panel support "
+		depends on I2C2_RK29 || I2C2_RK30
+config TOUCHSCREEN_GSLX680_RK3028
+		tristate "gslX680 rk3028 touchscreen panel support "
+		depends on I2C2_RK29 || I2C2_RK30
 config TOUCHSCREEN_XPT2046_SPI
 	tristate "XPT2046 based touchscreens:SPI Interface"
 	depends on SPIM_RK29
@@ -144,6 +161,7 @@ config TOUCHSCREEN_GT8XX
                   goodix touch max y resolution
 
 config TOUCHSCREEN_CT36X
+	default n
 	tristate "CT36X based touchscreens"
 
 config RK28_I2C_TS_NTP070
@@ -991,7 +1009,10 @@ config TOUCHSCREEN_86V_GT811_IIC
 config TOUCHSCREEN_GT82X_IIC
 	tristate "GT82x_IIC based touchscreens"
 	depends on I2C2_RK30
-
+		
+config TOUCHSCREEN_GT82X_IIC_760
+	tristate "GT82x_IIC based touchscreens for 760"
+	depends on I2C2_RK30
 config TOUCHSCREEN_GT818_IIC
 	tristate "GT818_IIC based touchscreens"
 	depends on I2C2_RK29
@@ -1021,7 +1042,9 @@ config TOUCHSCREEN_GT819
 config TOUCHSCREEN_GT8110
         tristate "GT8110 based touchscreens"
         depends on I2C2_RK29 || I2C_RK30
-
+config TP_760_TS
+	tristate "tp for 760"
+	depends on I2C2_RK29 || I2C_RK30
 config TOUCHSCREEN_CT360_IIC
 	tristate "CT360 based touchscreens"
 	depends on I2C_RK29 || I2C_RK30
@@ -1063,6 +1086,17 @@ config TOUCHSCREEN_FT5406
 config TOUCHSCREEN_FT5X0X
 		tristate "ft5x0x touchscreen panel support "
 		depends on I2C2_RK29 || I2C2_RK30
+config TOUCHSCREEN_FT5506
+	tristate "FT5506 based touchscreens: FT5506 Interface"
+	depends on I2C2_RK29 || I2C2_RK30
+	help
+	  say Y here if you have a touchscreen interface using the FT5506
+	  controller,and your board-specific initialization code includes that
+	  in its table of I2C devices.
+
+	  If unsure, say N(but it's safe to say "Y").
+# VTL TouchScreen Driver Config
+source "drivers/input/touchscreen/ct36x_ts/Kconfig"
 
 config ATMEL_MXT1386
         tristate "ATMEL_MXT1386 touchscreen panel support"
@@ -1093,4 +1127,8 @@ config ATMEL_MXT1386
                 default n
                 help
                   RK29 ATMEL_MXT1386 touch debug
+comment "zet62xx support" 
+source  "drivers/input/touchscreen/zet62xx/Kconfig"  
+comment "AW5X0X support" 
+source  "drivers/input/touchscreen/aw5x0x/Kconfig"
 endif

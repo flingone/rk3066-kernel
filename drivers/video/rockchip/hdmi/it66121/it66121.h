@@ -11,7 +11,7 @@
 
 #define IT66121_I2C_RATE	100 * 1000
 
-#ifdef CONFIG_HDMI_DEBUG
+#ifdef CONFIG_RK_HDMI_DEBUG
 #define DBG(format, ...) \
 		printk(KERN_INFO "IT66121: " format "\n", ## __VA_ARGS__)
 #define HDMITX_DEBUG_PRINTF(x)  DBG x

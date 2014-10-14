@@ -43,8 +43,10 @@
 #include <linux/regulator/machine.h>
 #include <linux/rfkill-rk.h>
 #include <linux/sensor-dev.h>
+#include <plat/ddr.h>
 #include <linux/regulator/rk29-pwm-regulator.h>
 
+#include "../../../drivers/headset_observe/rk_headset.h"
 #if defined(CONFIG_MFD_RK610)
 #include <linux/mfd/rk610_core.h>
 #endif
@@ -59,11 +61,14 @@
 #if defined(CONFIG_MU509)
 #include <linux/mu509.h>
 #endif
+#if defined(CONFIG_MT6229)
+#include <linux/mt6229.h>
+#endif
 #if defined(CONFIG_MW100)
 #include <linux/mw100.h>
 #endif
-#if defined(CONFIG_MT6229)
-#include <linux/mt6229.h>
+#if defined (CONFIG_BP_AUTO)
+#include <linux/bp-auto.h>
 #endif
 #if defined(CONFIG_SEW868)
 #include <linux/sew868.h>
@@ -71,6 +76,20 @@
 #if defined(CONFIG_ANDROID_TIMED_GPIO)
 #include "../../../drivers/staging/android/timed_gpio.h"
 #endif
+
+#if defined(CONFIG_CT36X_TS)
+#include <linux/ct36x.h>
+#endif
+
+/* Android Parameter */
+static int ap_mdm = 0;
+module_param(ap_mdm, int, 0644);
+static int ap_has_alsa = 0;
+module_param(ap_has_alsa, int, 0644);
+static int ap_data_only = 2;
+module_param(ap_data_only, int, 0644);
+static int ap_has_earphone = 0;
+module_param(ap_has_earphone, int, 0644);
 
 #if defined(CONFIG_MT6620)
 #include <linux/gps.h>
@@ -171,6 +190,69 @@ struct rk29_keys_platform_data rk29_keys_pdata = {
 	.nbuttons	= ARRAY_SIZE(key_button),
 	.chn	= 1,  //chn: 0-7, if do not use ADC,set 'chn' -1
 };
+
+#if defined (CONFIG_RK_HEADSET_DET) || defined (CONFIG_RK_HEADSET_IRQ_HOOK_ADC_DET)
+
+static int rk_headset_io_init(int gpio)
+{
+		int ret;
+		ret = gpio_request(gpio, "headset_input");
+		if(ret) 
+			return ret;
+
+		rk30_mux_api_set(GPIO0C7_TRACECTL_SMCADDR3_NAME, GPIO0C_GPIO0C7);
+		gpio_pull_updown(gpio, PullDisable);
+		gpio_direction_input(gpio);
+		mdelay(50);
+		return 0;
+};
+
+struct rk_headset_pdata rk_headset_info = {
+		.Headset_gpio		= RK30_PIN0_PC7,
+		.headset_in_type = HEADSET_IN_LOW,
+		.Hook_adc_chn = 2,
+		.hook_key_code = KEY_MEDIA,
+		.headset_io_init = rk_headset_io_init, 
+};
+
+struct platform_device rk_device_headset = {
+		.name	= "rk_headsetdet",
+		.id 	= 0,
+		.dev    = {
+			    .platform_data = &rk_headset_info,
+		}
+};
+#endif
+
+#if defined(CONFIG_CT36X_TS)
+#define TOUCH_MODEL		363
+#define TOUCH_MAX_X		1280
+#define TOUCH_MAX_y		800
+#define TOUCH_INT_PIN RK30_PIN4_PC2
+#define TOUCH_RST_PIN RK30_PIN4_PD0
+
+static int ct36x_init_platform_hw(void)
+{
+	return 0;
+}
+
+static struct ct36x_platform_data ct36x_info = {
+	.model   = TOUCH_MODEL,
+	.x_max   = TOUCH_MAX_X,
+	.y_max   = TOUCH_MAX_y,
+
+	.rst_io = {
+		.gpio = TOUCH_RST_PIN,
+		.active_low = 1,
+	},
+	.irq_io = {
+		.gpio = TOUCH_INT_PIN,
+		.active_low = 1,
+	},
+	.orientation = {1, 0, 0, 1},
+	.init_platform_hw = ct36x_init_platform_hw,
+};
+#endif
 
 #if defined(CONFIG_TOUCHSCREEN_GT8XX)
 #define TOUCH_RESET_PIN  RK30_PIN4_PD0
@@ -318,6 +400,94 @@ static struct platform_device rk29_device_backlight = {
 
 #endif
 
+#if defined (CONFIG_SND_SOC_RT3224) || defined (CONFIG_SND_SOC_RT3261)
+
+#define DIFFERENTIAL 1
+#define SINGLE_END 0
+#define TWO_SPK 2
+#define ONE_SPK 1
+
+enum {
+	SPK_AMPLIFY_ZERO_POINT_FIVE_WATT=1,
+	SPK_AMPLIFY_ZERO_POINT_SIX_WATT,
+	SPK_AMPLIFY_ZERO_POINT_EIGHT_WATT,
+	SPK_AMPLIFY_ONE_WATT,
+};
+
+enum {
+	LR_NORMAL,
+	LR_SWAP,
+	LEFT_COPY_TO_RIGHT,
+	RIGHT_COPY_LEFT,
+};
+
+static int rt3261_io_init(int gpio, char *iomux_name, int iomux_mode)
+{
+	gpio_request(gpio,NULL);
+	rk30_mux_api_set(iomux_name, iomux_mode);
+	gpio_direction_output(gpio,1);
+	
+};
+
+static struct rt3261_platform_data rt3261_info = {
+	.codec_en_gpio 			= RK30_PIN4_PD7,
+	.codec_en_gpio_info		= {GPIO4D7_SMCDATA15_TRACEDATA15_NAME,GPIO4D_GPIO4D7},
+	.io_init			= rt3261_io_init,
+	.spk_num 			= TWO_SPK,
+	.modem_input_mode		= DIFFERENTIAL,
+	.lout_to_modem_mode		= DIFFERENTIAL,
+	.spk_amplify			= SPK_AMPLIFY_ZERO_POINT_SIX_WATT,
+	.playback_if1_data_control	= LR_NORMAL,
+	.playback_if2_data_control	= LR_NORMAL,
+};
+#endif
+
+#if defined(CONFIG_BP_AUTO)
+static int bp_io_init(void)
+{
+	 rk30_mux_api_set(GPIO2B6_LCDC1DATA14_SMCADDR18_TSSYNC_NAME, GPIO2B_GPIO2B6);
+	 rk30_mux_api_set(GPIO4D2_SMCDATA10_TRACEDATA10_NAME, GPIO4D_GPIO4D2);
+	 rk30_mux_api_set(GPIO4C6_SMCDATA6_TRACEDATA6_NAME, GPIO4C_GPIO4C6);
+	 rk30_mux_api_set(GPIO4C4_SMCDATA4_TRACEDATA4_NAME, GPIO4C_GPIO4C4);
+	 //rk30_mux_api_set(GPIO2B7_LCDC1DATA15_SMCADDR19_HSADCDATA7_NAME, GPIO2B_GPIO2B7);
+	 //rk30_mux_api_set(GPIO2C0_LCDCDATA16_GPSCLK_HSADCCLKOUT_NAME, GPIO2C_GPIO2C0);
+	return 0;
+}
+
+static int bp_io_deinit(void)
+{
+	
+	return 0;
+}
+static int bp_id_get(void)
+{	
+	return ap_mdm;   //internally 3G modem ID, defined in  include\linux\Bp-auto.h
+}
+
+struct bp_platform_data bp_auto_info = {
+	.init_platform_hw 	= bp_io_init,	
+	.exit_platform_hw 	= bp_io_deinit,
+	.get_bp_id              = bp_id_get,
+	.bp_power 		= RK30_PIN6_PB2, 	// 3g_power
+	.bp_en 			= RK30_PIN2_PB6, 	// 3g_en
+	.bp_reset			= RK30_PIN4_PD2,
+	.bp_usb_en 		= BP_UNKNOW_DATA, 	//W_disable
+	.bp_uart_en 		= BP_UNKNOW_DATA, 	//EINT9
+	.bp_wakeup_ap 	= RK30_PIN4_PC6,	//
+	.ap_wakeup_bp 	= RK30_PIN4_PC4,
+	.ap_ready 		= BP_UNKNOW_DATA,	//
+	.bp_ready		= BP_UNKNOW_DATA,
+	.gpio_valid 		= 1,		//if 1:gpio is define in bp_auto_info,if 0:is not use gpio in bp_auto_info
+};
+
+struct platform_device device_bp_auto = {	
+        .name = "bp-auto",	
+    	.id = -1,	
+	.dev		= {
+		.platform_data = &bp_auto_info,
+	}    	
+    };
+#endif
 #ifdef CONFIG_RK29_SUPPORT_MODEM
 
 #define RK30_MODEM_POWER        RK30_PIN4_PD1
@@ -501,7 +671,7 @@ static struct sensor_platform_data mma8452_info = {
 	.irq_enable = 1,
 	.poll_delay_ms = 30,
         .init_platform_hw = mma8452_init_platform_hw,
-        .orientation = {-1, 0, 0, 0, 0, 1, 0, -1, 0},
+        .orientation = {-1, 0, 0, 0,-1, 0, 0, 0, 1},
 };
 #endif
 #if defined (CONFIG_GS_LIS3DH)
@@ -519,7 +689,7 @@ static struct sensor_platform_data lis3dh_info = {
 	.irq_enable = 1,
 	.poll_delay_ms = 30,
         .init_platform_hw = lis3dh_init_platform_hw,
-	.orientation = {-1, 0, 0, 0, 0, 1, 0, -1, 0},
+	.orientation = {-1, 0, 0, 0, -1, 0, 0, 0, 1},
 };
 #endif
 #if defined (CONFIG_GS_KXTIK)
@@ -714,21 +884,39 @@ static int rk_fb_io_enable(void)
 
 #if defined(CONFIG_LCDC0_RK30)
 struct rk29fb_info lcdc0_screen_info = {
-	.prop	   = PRMRY,		//primary display device
-	.io_init   = rk_fb_io_init,
-	.io_disable = rk_fb_io_disable,
-	.io_enable = rk_fb_io_enable,
-	.set_screen_info = set_lcd_info,
+#if defined(CONFIG_RK_HDMI) && defined(CONFIG_HDMI_SOURCE_LCDC0) && defined(CONFIG_DUAL_LCDC_DUAL_DISP_IN_KERNEL)
+		.prop	   = EXTEND,	//extend display device
+		.io_init    = NULL,
+		.io_disable = NULL,
+		.io_enable = NULL,
+		.set_screen_info = hdmi_init_lcdc,
+#else
+		.prop	   = PRMRY,		//primary display device
+		.io_init   = rk_fb_io_init,
+		.io_disable = rk_fb_io_disable,
+		.io_enable = rk_fb_io_enable,
+		.set_screen_info = set_lcd_info,
+#endif
+
 };
 #endif
 
 #if defined(CONFIG_LCDC1_RK30)
 struct rk29fb_info lcdc1_screen_info = {
-	#if defined(CONFIG_RK_HDMI)
-	.prop		= EXTEND,	//extend display device
-	.lcd_info  = NULL,
-	.set_screen_info = hdmi_init_lcdc,
-	#endif
+#if defined(CONFIG_RK_HDMI) && defined(CONFIG_HDMI_SOURCE_LCDC1) && defined(CONFIG_DUAL_LCDC_DUAL_DISP_IN_KERNEL)
+		.prop	   = EXTEND,	//extend display device
+		.io_init    = NULL,
+		.io_disable = NULL,
+		.io_enable = NULL,
+		.set_screen_info = hdmi_init_lcdc,
+#else
+		.prop	   = PRMRY,		//primary display device
+		.io_init   = rk_fb_io_init,
+		.io_disable = rk_fb_io_disable,
+		.io_enable = rk_fb_io_enable,
+		.set_screen_info = set_lcd_info,
+#endif
+
 };
 #endif
 
@@ -1023,6 +1211,7 @@ static struct platform_device irda_device = {
 
 #ifdef CONFIG_ION
 #define ION_RESERVE_SIZE        (80 * SZ_1M)
+#define ION_RESERVE_SIZE_120M   (120 * SZ_1M)
 static struct ion_platform_data rk30_ion_pdata = {
 	.nr = 1,
 	.heaps = {
@@ -1030,7 +1219,7 @@ static struct ion_platform_data rk30_ion_pdata = {
 			.type = ION_HEAP_TYPE_CARVEOUT,
 			.id = ION_NOR_HEAP_ID,
 			.name = "norheap",
-			.size = ION_RESERVE_SIZE,
+//			.size = ION_RESERVE_SIZE,
 		}
 	},
 };
@@ -1393,7 +1582,7 @@ static struct platform_device device_rfkill_rk = {
 };
 #endif
 
-#if defined(CONFIG_MT5931_MT6622)
+#if defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MTK_MT6622)
 static struct mt6622_platform_data mt6622_platdata = {
     .power_gpio         = { // BT_REG_ON
         .io             = RK30_PIN3_PC7, // set io to INVALID_GPIO for disable it
@@ -1454,25 +1643,32 @@ static struct platform_device *devices[] __initdata = {
 	&rk30_device_modem,
 #endif
 #if defined(CONFIG_MU509)
-	&rk29_device_mu509,
-#endif
+  &rk29_device_mu509,
+ #endif
 #if defined(CONFIG_MW100)
-	&rk29_device_mw100,
+ &rk29_device_mw100,
 #endif
 #if defined(CONFIG_MT6229)
-	&rk29_device_mt6229,
+&rk29_device_mt6229,
 #endif
 #if defined(CONFIG_SEW868)
-	&rk30_device_sew868,
+&rk30_device_sew868,
 #endif
+#if defined (CONFIG_RK_HEADSET_DET) ||  defined (CONFIG_RK_HEADSET_IRQ_HOOK_ADC_DET)
+	&rk_device_headset,
+#endif
+
 #if defined(CONFIG_BATTERY_RK30_ADC)||defined(CONFIG_BATTERY_RK30_ADC_FAC)
  	&rk30_device_adc_battery,
 #endif
 #ifdef CONFIG_RFKILL_RK
 	&device_rfkill_rk,
 #endif
-#ifdef CONFIG_MT5931_MT6622
+#if defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MTK_MT6622)
 	&device_mt6622,
+#endif
+#if defined(CONFIG_BP_AUTO)
+	&device_bp_auto,
 #endif
 };
 
@@ -1602,11 +1798,19 @@ static struct i2c_board_info __initdata i2c0_info[] = {
 		.flags         = 0,
 	},
 #endif
-#if defined (CONFIG_SND_SOC_RT5631)
+#if defined (CONFIG_SND_SOC_RT5631) || defined (CONFIG_SND_SOC_RT5631_PHONE)
         {
                 .type                   = "rt5631",
                 .addr                   = 0x1a,
                 .flags                  = 0,
+        },
+#endif
+#if defined (CONFIG_SND_SOC_RT3224) || defined (CONFIG_SND_SOC_RT3261)
+        {
+                .type                   = "rt3261",
+                .addr                   = 0x1c,
+                .flags                  = 0,
+				.platform_data          = &rt3261_info,
         },
 #endif
 
@@ -1710,6 +1914,14 @@ static struct i2c_board_info __initdata i2c2_info[] = {
 		.irq           = RK30_PIN4_PC2,
 		.platform_data = &goodix_info,
 	},
+#endif
+#if defined (CONFIG_CT36X_TS)
+		{
+			.type		   = CT36X_NAME,
+			.addr		   = 0x01,
+			.flags		   = 0,
+			.platform_data = &ct36x_info,
+		},
 #endif
 #if defined (CONFIG_LS_CM3217)
 	{
@@ -1832,12 +2044,34 @@ static void __init machine_rk30_board_init(void)
 #if defined(CONFIG_MT6620)
     clk_set_rate(clk_get_sys("rk_serial.0", "uart"), 48*1000000);
 #endif
+#if defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MTK_MT6622)
+    clk_set_rate(clk_get_sys("rk_serial.0", "uart"), 24*1000000);
+#endif
+#if defined (CONFIG_SND_SOC_RT3224) || defined (CONFIG_SND_SOC_RT3261)
+	//add for codec_en 
+	gpio_request(RK30_PIN4_PD7, "codec_en");
+	rk30_mux_api_set(GPIO4D7_SMCDATA15_TRACEDATA15_NAME, GPIO4D_GPIO4D7);
+	gpio_direction_output(RK30_PIN4_PD7, GPIO_HIGH);
+#endif
 }
 
 static void __init rk30_reserve(void)
 {
+	int size, ion_reserve_size;
 #ifdef CONFIG_ION
 	rk30_ion_pdata.heaps[0].base = board_mem_reserve_add("ion", ION_RESERVE_SIZE);
+	size = ddr_get_cap() >> 20;
+	if(size >= 1024) { // DDR >= 1G, set ion to 120M
+               rk30_ion_pdata.heaps[0].size = ION_RESERVE_SIZE_120M;
+               ion_reserve_size = ION_RESERVE_SIZE_120M;
+	}
+	else {
+               rk30_ion_pdata.heaps[0].size = ION_RESERVE_SIZE;
+               ion_reserve_size = ION_RESERVE_SIZE;
+	}
+	printk("ddr size = %d M, set ion_reserve_size size to %d\n", size, ion_reserve_size);
+       //rk30_ion_pdata.heaps[0].base = board_mem_reserve_add("ion", ION_RESERVE_SIZE);
+       rk30_ion_pdata.heaps[0].base = board_mem_reserve_add("ion", ion_reserve_size);
 #endif
 #ifdef CONFIG_FB_ROCKCHIP
 	resource_fb[0].start = board_mem_reserve_add("fb0 buf", get_fb_size());

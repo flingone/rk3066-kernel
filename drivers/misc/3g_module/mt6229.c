@@ -72,7 +72,7 @@ static irqreturn_t detect_irq_handler(int irq, void *dev_id)
     }
     return IRQ_HANDLED;
 }
-int modem_poweron_off(int on_off)
+static int modem_poweron_off(int on_off)
 {
 	struct rk29_mt6229_data *pdata = gpdata;		
   if(on_off)
@@ -146,9 +146,9 @@ static long mt6229_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch(cmd)
 	{
 		case MT6229_RESET:					
-			gpio_set_value(pdata->bp_power, GPIO_HIGH);
+			modem_poweron_off(0);
 			msleep(10);
-			gpio_set_value(pdata->bp_power, GPIO_LOW);
+			modem_poweron_off(1);
 			break;
 		default:
 			break;
@@ -188,20 +188,24 @@ static ssize_t modem_status_write(struct class *cls, const char *_buf, size_t _c
     int new_state = simple_strtoul(_buf, NULL, 16);
    if(new_state == modem_status) return _count;
    if (new_state == 1){
-     printk("%s, c(%d), modem resume \n", __FUNCTION__, new_state);
-     gpio_set_value(gpdata->modem_usb_en, GPIO_HIGH);
-     gpio_set_value(gpdata->modem_uart_en,GPIO_LOW);
+    // printk("%s, c(%d), modem resume \n", __FUNCTION__, new_state);
+    // gpio_set_value(gpdata->modem_usb_en, GPIO_HIGH);
+    // gpio_set_value(gpdata->modem_uart_en,GPIO_LOW);
+	 printk("%s, c(%d), open modem \n", __FUNCTION__, new_state);	
+	 modem_poweron_off(1);
    }else if(new_state == 0){
-     printk("%s, c(%d), modem suspend \n", __FUNCTION__, new_state);
-     gpio_set_value(gpdata->modem_usb_en, GPIO_LOW);
-     gpio_set_value(gpdata->modem_uart_en,GPIO_HIGH);
+    // printk("%s, c(%d), modem suspend \n", __FUNCTION__, new_state);
+    // gpio_set_value(gpdata->modem_usb_en, GPIO_LOW);
+    // gpio_set_value(gpdata->modem_uart_en,GPIO_HIGH);
+	 printk("%s, c(%d), close modem \n", __FUNCTION__, new_state);	
+	  modem_poweron_off(0);
    }else{
      printk("%s, invalid parameter \n", __FUNCTION__);
    }
 	modem_status = new_state;
     return _count; 
 }
-static CLASS_ATTR(modem_status, 0777, modem_status_read, modem_status_write);
+static CLASS_ATTR(modem_status, 0664, modem_status_read, modem_status_write);
 static int mt6229_probe(struct platform_device *pdev)
 {
 	struct rk29_mt6229_data *pdata = gpdata = pdev->dev.platform_data;
@@ -291,7 +295,7 @@ err6:
 	return 0;
 }
 
-int mt6229_suspend(struct platform_device *pdev, pm_message_t state)
+static int mt6229_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	do_wakeup_irq = 1;
 	ap_wakeup_bp(pdev, 0);
@@ -299,19 +303,20 @@ int mt6229_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-int mt6229_resume(struct platform_device *pdev)
+static int mt6229_resume(struct platform_device *pdev)
 {
 	gpio_set_value(gpdata->modem_uart_en,GPIO_LOW);
 	schedule_delayed_work(&wakeup_work, 2*HZ);
 	return 0;
 }
 
-void mt6229_shutdown(struct platform_device *pdev)
+static void mt6229_shutdown(struct platform_device *pdev)
 {
 	struct rk29_mt6229_data *pdata = pdev->dev.platform_data;
 	struct modem_dev *mt6229_data = platform_get_drvdata(pdev);
 	
 	modem_poweron_off(0);
+	gpio_set_value(pdata->modem_power_en, GPIO_LOW);
 
 	if(pdata->io_deinit)
 		pdata->io_deinit();

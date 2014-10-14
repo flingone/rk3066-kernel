@@ -56,6 +56,11 @@
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
+#include "f_uvc.c"
+
+#ifdef CONFIG_BYPASS_INPUT_TO_HIDG
+#include "f_hid_rk.c"
+#endif
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -160,6 +165,7 @@ static struct usb_configuration android_config_driver = {
 	.label		= "android",
 	.unbind		= android_unbind_config,
 	.bConfigurationValue = 1,
+	.bmAttributes = USB_CONFIG_ATT_SELFPOWER | USB_CONFIG_ATT_WAKEUP ,
 };
 
 static void android_work(struct work_struct *data)
@@ -254,7 +260,7 @@ static void adb_android_function_enable(struct android_usb_function *f)
 
 	/* Disable the gadget until adbd is ready */
 	if (!data->opened)
-		android_disable(dev);
+		;//android_disable(dev);
 }
 
 static void adb_android_function_disable(struct android_usb_function *f)
@@ -266,7 +272,7 @@ static void adb_android_function_disable(struct android_usb_function *f)
 
 	/* Balance the disable that was called in closed_callback */
 	if (!data->opened)
-		android_enable(dev);
+		;//android_enable(dev);
 }
 
 static struct android_usb_function adb_function = {
@@ -288,7 +294,7 @@ static void adb_ready_callback(void)
 	data->opened = true;
 
 	if (data->enabled)
-		android_enable(dev);
+		;//android_enable(dev);
 
 	mutex_unlock(&dev->mutex);
 }
@@ -303,7 +309,7 @@ static void adb_closed_callback(void)
 	data->opened = false;
 
 	if (data->enabled)
-		android_disable(dev);
+		;//android_disable(dev);
 
 	mutex_unlock(&dev->mutex);
 }
@@ -608,6 +614,12 @@ static struct device_attribute *rndis_function_attributes[] = {
 	&dev_attr_vendorID,
 	NULL
 };
+static int rndis_function_ctrlrequest(struct android_usb_function *f,
+						struct usb_composite_dev *cdev,
+						const struct usb_ctrlrequest *c)
+{
+	return rndis_setup(cdev, c);
+}
 
 static struct android_usb_function rndis_function = {
 	.name		= "rndis",
@@ -615,6 +627,7 @@ static struct android_usb_function rndis_function = {
 	.cleanup	= rndis_function_cleanup,
 	.bind_config	= rndis_function_bind_config,
 	.unbind_config	= rndis_function_unbind_config,
+	.ctrlrequest    = rndis_function_ctrlrequest,
 	.attributes	= rndis_function_attributes,
 };
 
@@ -629,16 +642,30 @@ static int mass_storage_function_init(struct android_usb_function *f,
 {
 	struct mass_storage_function_config *config;
 	struct fsg_common *common;
-	int err;
+	int err,i;
+	char name[6];
 
 	config = kzalloc(sizeof(struct mass_storage_function_config),
 								GFP_KERNEL);
 	if (!config)
 		return -ENOMEM;
-
+#ifdef CONFIG_UMS_AS_CDROM  
+	config->fsg.nluns = 1;
+	config->fsg.luns[0].removable = 1;
+	config->fsg.luns[0].ro = 1;
+        config->fsg.luns[0].cdrom = 1;
+	for(i=1;i<config->fsg.nluns;i++)
+	{
+		config->fsg.luns[i].removable = 1;
+		config->fsg.luns[i].nofua = 1;
+	}
+#else
+	//printk(KERN_ERR "CONFIG_UMS_AS_CDROM is false -------------------\n");
 	config->fsg.nluns = 2;
 	config->fsg.luns[0].removable = 1;
 	config->fsg.luns[1].removable = 1;
+#endif
+
 
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
@@ -646,15 +673,20 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		return PTR_ERR(common);
 	}
 
-	err = sysfs_create_link(&f->dev->kobj,
-				&common->luns[0].dev.kobj,
-				"lun");
-        err = sysfs_create_link(&f->dev->kobj, &common->luns[1].dev.kobj,"lun1");
-	if (err) {
-		kfree(config);
-		return err;
+	err = sysfs_create_link(&f->dev->kobj, &common->luns[0].dev.kobj,"lun");
+        if (err) {
+                kfree(config);
+                return err;
+        }
+	for(i=1;i<config->fsg.nluns;i++)
+	{
+		sprintf(name,"lun%d",i);
+        	err = sysfs_create_link(&f->dev->kobj, &common->luns[i].dev.kobj,&name);
+		if (err) {
+			kfree(config);
+			return err;
+		}
 	}
-
 	config->common = common;
 	f->config = config;
 	return 0;
@@ -808,6 +840,123 @@ static struct android_usb_function audio_source_function = {
 	.attributes	= audio_source_function_attributes,
 };
 
+#ifdef CONFIG_BYPASS_INPUT_TO_HIDG
+
+static int hidg_function_init(struct android_usb_function *f,
+			struct usb_composite_dev *cdev)
+{
+    ghid_setup(cdev->gadget, 2);
+    return 0;
+}
+
+static void hidg_function_cleanup(struct android_usb_function *f)
+{
+    ghid_cleanup();
+    return;
+}
+
+static int hidg_function_bind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+    if(hid_data_kbd.report_desc_length)
+        hidg_bind_config(c, &hid_data_kbd, HIDG_INDEX_KBD);
+    return 0;
+}
+static int hidg_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+    return 0;
+}
+
+static ssize_t hidg_bypass_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf," %s \n" ,
+	    f_hid_bypass_input_get()? "Input report bypass enable" : "Input report bypass disable");
+}
+
+static ssize_t hidg_bypass_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+    int bypass;
+    sscanf(buf, "%d", &bypass);
+    f_hid_bypass_input_set(bypass);
+	return size;
+}
+
+static DEVICE_ATTR(bypass_input, S_IRUGO | S_IWUSR, hidg_bypass_show, hidg_bypass_store);
+
+static struct device_attribute *hidg_function_attributes[] = 
+                {&dev_attr_bypass_input ,NULL };
+
+
+static struct android_usb_function hidg_function = {
+	.name		= "hidg",
+	.init		= hidg_function_init,
+	.cleanup	= hidg_function_cleanup,
+	.bind_config	= hidg_function_bind_config,
+	.unbind_config  = hidg_function_unbind_config,
+	.attributes     = hidg_function_attributes,
+};
+
+/* =============== for mouse =============== */
+
+static int hidg_mouse_function_bind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+    if(hid_data_mouse.report_desc_length)
+        hidg_bind_config(c, &hid_data_mouse, HIDG_INDEX_MOUSE);
+    return 0;
+}
+static int hidg_mouse_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+    return 0;
+}
+
+static struct android_usb_function hidg_mouse_function = {
+	.name		= "hidg_mouse",
+	.bind_config	= hidg_mouse_function_bind_config,
+	.unbind_config  = hidg_mouse_function_unbind_config,
+};
+
+#endif
+
+
+static int webcam_function_init(struct android_usb_function *f,
+			struct usb_composite_dev *cdev)
+{
+    return 0;
+}
+
+static void webcam_function_cleanup(struct android_usb_function *f)
+{
+    return;
+}
+
+static int webcam_function_bind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	return uvc_bind_config(c, uvc_control_cls, uvc_fs_streaming_cls,
+			       uvc_hs_streaming_cls);
+}
+static int webcam_function_unbind_config(struct android_usb_function *f,
+                        struct usb_configuration *c)
+{
+    return 0;
+}
+
+
+
+static struct android_usb_function webcam_function = {
+	.name		= "webcam",
+	.init		= webcam_function_init,
+	.cleanup	= webcam_function_cleanup,
+	.bind_config	= webcam_function_bind_config,
+	.unbind_config  = webcam_function_unbind_config,
+};
+
+
 static struct android_usb_function *supported_functions[] = {
 	&adb_function,
 	&acm_function,
@@ -817,9 +966,13 @@ static struct android_usb_function *supported_functions[] = {
 	&mass_storage_function,
 	&accessory_function,
 	&audio_source_function,
+	&webcam_function,
+#ifdef CONFIG_BYPASS_INPUT_TO_HIDG
+	&hidg_function,
+	&hidg_mouse_function,
+#endif
 	NULL
 };
-
 
 static int android_init_functions(struct android_usb_function **functions,
 				  struct usb_composite_dev *cdev)
@@ -1035,6 +1188,17 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	return size;
 }
 
+ssize_t wakeup_store(struct device *pdev, struct device_attribute *attr,
+			    const char *buff, size_t size)
+{
+    struct android_dev *dev = _android_dev;
+
+    if(dev->cdev->suspended && dev->connected)
+        if(dev->cdev->gadget->ops->wakeup)
+            dev->cdev->gadget->ops->wakeup(dev->cdev->gadget);
+	return size;
+}
+
 static ssize_t state_show(struct device *pdev, struct device_attribute *attr,
 			   char *buf)
 {
@@ -1106,6 +1270,8 @@ DESCRIPTOR_STRING_ATTR(iSerial, serial_string)
 static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show, functions_store);
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, enable_show, enable_store);
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
+static DEVICE_ATTR(wakeup, S_IRUGO | S_IWUSR, NULL, wakeup_store);
+
 
 static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_idVendor,
@@ -1120,6 +1286,7 @@ static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_functions,
 	&dev_attr_enable,
 	&dev_attr_state,
+	&dev_attr_wakeup,
 	NULL
 };
 
@@ -1229,7 +1396,6 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	struct android_usb_function	*f;
 	int value = -EOPNOTSUPP;
 	unsigned long flags;
-
 	req->zero = 0;
 	req->complete = composite_setup_complete;
 	req->length = 0;
@@ -1277,6 +1443,9 @@ static void android_disconnect(struct usb_gadget *gadget)
 	   so we need to inform it when we are disconnected.
 	 */
 	acc_disconnect();
+#ifdef CONFIG_BYPASS_INPUT_TO_HIDG
+    hidg_disconnect();
+#endif
 
 	spin_lock_irqsave(&cdev->lock, flags);
 	dev->connected = 0;

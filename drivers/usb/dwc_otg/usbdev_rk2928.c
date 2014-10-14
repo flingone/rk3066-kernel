@@ -54,18 +54,20 @@ int dwc_otg_check_dpdm(void)
         }
     }
     mdelay(105);
-    printk("regbase %p 0x%x, otg_phy_con%p, 0x%x\n",
-        reg_base, *(reg_base), otg_phy_con1, *otg_phy_con1);
+    //printk("regbase %p 0x%x, otg_phy_con%p, 0x%x\n",
+    //    reg_base, *(reg_base), otg_phy_con1, *otg_phy_con1);
     otg_dctl = (unsigned int * )(reg_base+0x804);
     otg_gotgctl = (unsigned int * )(reg_base);
     otg_hprt0 = (unsigned int * )(reg_base + DWC_OTG_HOST_PORT_REGS_OFFSET);
     if(*otg_gotgctl &(1<<19)){
         bus_status = 1;
-        *otg_dctl &= ~(0x01<<1);//@lyz exit soft-disconnect mode
-        mdelay(50);    // delay about 10ms
+        *(unsigned int*)(RK2928_GRF_BASE + GRF_UOC0_CON0) = 0x10000000;//exit usbphy io hi-z state
+        *otg_dctl &= ~(0x01<<1);//exit soft-disconnect mode
+        mdelay(1);    // delay about 1ms
     // check dp,dm
-        if((*otg_hprt0 & 0xc00)==0xc00)//@lyz check hprt[11:10] 
+        if((*otg_hprt0 & 0xc00)==0xc00)//check hprt[11:10] 
             bus_status = 2;
+        *(unsigned int*)(RK2928_GRF_BASE + GRF_UOC0_CON0) = 0x10001000;
     }
 out:
     return bus_status;
@@ -98,7 +100,7 @@ void usb20otg_hw_init(void)
     *otg_phy_con1 = 0x1D5 |(0x1ff<<16);   // enter suspend.
 #endif
     // usb phy config init
-    *(unsigned int *)(USBGRF_UOC0_CON0) = 0x07e70350;
+    *(unsigned int *)(USBGRF_UOC0_CON0) = 0xe7e7a350;
 
     // other hardware init
 #ifdef CONFIG_RK_CONFIG
@@ -129,15 +131,41 @@ void usb20otg_phy_suspend(void* pdata, int suspend)
 void usb20otg_soft_reset(void)
 {
 #if 1
-    cru_set_soft_reset(SOFT_RST_USBOTG0, true);
-    cru_set_soft_reset(SOFT_RST_USBPHY0, true);
-    cru_set_soft_reset(SOFT_RST_OTGC0, true);
-    udelay(1);
+    printk("~~~~~~~~~~usb20otg_soft_reset\n");
+    //phy reset
+    *(unsigned int*)(USBGRF_UOC0_CON5) = 0x00030001;
+    *(unsigned int*)(USBGRF_UOC1_CON5) = 0x00030001;
 
-    cru_set_soft_reset(SOFT_RST_USBOTG0, false);
-    cru_set_soft_reset(SOFT_RST_USBPHY0, false);
-    cru_set_soft_reset(SOFT_RST_OTGC0, false);
-    mdelay(1);
+
+    cru_set_soft_reset(SOFT_RST_USBPOR, true);
+
+    cru_set_soft_reset(SOFT_RST_UTMI0, true);
+    cru_set_soft_reset(SOFT_RST_UTMI1, true);
+
+    udelay(15);
+    
+    *(unsigned int*)(USBGRF_UOC0_CON5) = 0x00030002; 
+    *(unsigned int*)(USBGRF_UOC1_CON5) = 0x00030002;
+
+    udelay(1500);
+    cru_set_soft_reset(SOFT_RST_USBPOR, false);
+    udelay(2);
+    cru_set_soft_reset(SOFT_RST_UTMI0, false);
+    cru_set_soft_reset(SOFT_RST_UTMI1, false);
+
+    //ctrler reset
+    cru_set_soft_reset(SOFT_RST_OTGC0, true);
+    cru_set_soft_reset(SOFT_RST_OTGC1, true);
+    udelay(2);
+
+    cru_set_soft_reset(SOFT_RST_USBOTG0, true);
+    cru_set_soft_reset(SOFT_RST_USBOTG1, true);
+    udelay(2);
+    
+    cru_set_soft_reset(SOFT_RST_OTGC0,false);
+    cru_set_soft_reset(SOFT_RST_OTGC1,false);
+    cru_set_soft_reset(SOFT_RST_USBOTG0,false);
+    cru_set_soft_reset(SOFT_RST_USBOTG1,false);
 #endif
 }
 void usb20otg_clock_init(void* pdata)
@@ -285,17 +313,10 @@ void usb20host_phy_suspend(void* pdata, int suspend)
 }
 void usb20host_soft_reset(void)
 {
-#if 1
-    cru_set_soft_reset(SOFT_RST_USBOTG1, true);
-    cru_set_soft_reset(SOFT_RST_USBPHY1, true);
-    cru_set_soft_reset(SOFT_RST_OTGC1, true);
-    udelay(1);
-
-    cru_set_soft_reset(SOFT_RST_USBOTG1, false);
-    cru_set_soft_reset(SOFT_RST_USBPHY1, false);
-    cru_set_soft_reset(SOFT_RST_OTGC1, false);
-    mdelay(1);
-#endif
+    *(unsigned int*)(USBGRF_UOC1_CON5) = 0x00030001;
+    udelay(300);
+    *(unsigned int*)(USBGRF_UOC1_CON5) = 0x00030002;
+    udelay(1500);
 }
 void usb20host_clock_init(void* pdata)
 {

@@ -1,4 +1,3 @@
-/* $_FOR_ROCKCHIP_RBOX_$ */
 #include <linux/module.h>
 #include <linux/ctype.h>
 #include <linux/idr.h>
@@ -287,7 +286,7 @@ static struct device_attribute display_attrs[] = {
 	__ATTR(mode, 0664, display_show_mode, display_store_mode),
 	__ATTR(scale, 0664, display_show_scale, display_store_scale),
 	__ATTR(3dmode, 0664, display_show_3dmode, display_store_3dmode),
-	__ATTR(audioinfo, 0664, display_show_sinkaudioinfo, NULL),
+	__ATTR(audioinfo, S_IRUGO, display_show_sinkaudioinfo, NULL),
 	__ATTR_NULL
 };
 

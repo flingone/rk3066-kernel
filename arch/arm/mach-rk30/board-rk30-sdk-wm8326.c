@@ -885,17 +885,11 @@ void wm831x_pmu_early_resume(struct regulator_dev *rdev)
 #endif
 
 void __sramfunc board_pmu_wm8326_suspend(void)
-{
-#ifdef CONFIG_DWC_REMOTE_WAKEUP		
-	cru_writel(CRU_CLKGATE5_GRFCLK_ON|0x60000000,CRU_CLKGATE5_CON_ADDR); //open grf clk
-#else
+{	
 	cru_writel(CRU_CLKGATE5_GRFCLK_ON,CRU_CLKGATE5_CON_ADDR); //open grf clk
-#ifndef CONFIG_RK_IR_WAKEUP
 	grf_writel(GPIO6_PB1_DIR_OUT, GRF_GPIO6L_DIR_ADDR);
 	grf_writel(GPIO6_PB1_DO_HIGH, GRF_GPIO6L_DO_ADDR);  //set gpio6_b1 output low
 	grf_writel(GPIO6_PB1_EN_MASK, GRF_GPIO6L_EN_ADDR);
-#endif
-#endif	
 }
 void __sramfunc board_pmu_wm8326_resume(void)
 {

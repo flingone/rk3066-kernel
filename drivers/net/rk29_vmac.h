@@ -30,6 +30,8 @@
 #define VMAC_NAME		"rk29 vmac"
 #define VMAC_VERSION		"1.0"
 
+#define RTL_8201F_PHY_ID  0x001cc816
+
 /* Buffer descriptors */
 #ifdef CONFIG_ARCH_RK29
 #define TX_BDT_LEN		16    /* Number of receive BD's */

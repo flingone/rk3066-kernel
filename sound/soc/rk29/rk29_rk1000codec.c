@@ -225,14 +225,23 @@ static struct snd_soc_ops rk29_ops = {
 static struct snd_soc_dai_link rk29_dai = {
 	.name = "RK1000_CODEC",
 	.stream_name = "RK1000 CODEC PCM",
-#ifdef CONFIG_ARCH_RK29
+#if defined(CONFIG_ARCH_RK29)
 	.codec_name = "RK1000_CODEC.3-0060",
-#endif
-#ifdef CONFIG_ARCH_RK30
+#elif defined(CONFIG_ARCH_RK30)
 	.codec_name = "RK1000_CODEC.2-0060",
+#elif defined(CONFIG_ARCH_RK3188)
+	.codec_name = "RK1000_CODEC.4-0060",
+#elif defined(CONFIG_ARCH_RK3026)
+	.codec_name = "RK1000_CODEC.1-0060",
 #endif
 	.platform_name = "rockchip-audio",
+#if defined(CONFIG_SND_RK29_SOC_I2S_8CH)	
 	.cpu_dai_name = "rk29_i2s.0",
+#elif defined(CONFIG_SND_RK29_SOC_I2S_2CH)
+	.cpu_dai_name = "rk29_i2s.1",
+#else
+	.cpu_dai_name = "rk29_i2s.2",
+#endif
 	.codec_dai_name = "rk1000_codec",
 	.init = rk29_rk1000_codec_init,
 	.ops = &rk29_ops,

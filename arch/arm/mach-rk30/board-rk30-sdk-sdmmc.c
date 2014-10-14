@@ -130,26 +130,30 @@
 //
 
 #if defined(CONFIG_ARCH_RK3066B) || defined(CONFIG_ARCH_RK3188)//refer to file /arch/arm/mach-rk30/include/mach/iomux-rk3066b.h
-    #define WIFI_HOST_WAKE RK30_PIN3_PD2
          
-    #if defined(CONFIG_RTL8192CU) || defined(CONFIG_RTL8188EU) || defined(CONFIG_RTL8723AU) 
+    #if defined(CONFIG_RTL8192CU) || defined(CONFIG_RTL8188EU) || defined(CONFIG_RTL8723AU) || defined(CONFIG_RTL8192DU)
         #define RK30SDK_WIFI_GPIO_POWER_N               RK30_PIN3_PD0            
         #define RK30SDK_WIFI_GPIO_POWER_ENABLE_VALUE    GPIO_LOW//GPIO_HIGH        
         #define RK30SDK_WIFI_GPIO_POWER_PIN_NAME        "wifi_power"
         #define RK30SDK_WIFI_GPIO_POWER_IOMUX_FGPIO     GPIO3_D0
         
-    #elif defined(CONFIG_BCM4329) || defined(CONFIG_BCM4319) || defined(CONFIG_RKWIFI) || defined(CONFIG_RTL8189ES)
+    #elif defined(CONFIG_BCM4329) || defined(CONFIG_BCM4319) || defined(CONFIG_RKWIFI) || defined(CONFIG_RTL8189ES) \
+		|| defined(CONFIG_RTL8723BS)
         #define RK30SDK_WIFI_GPIO_POWER_N               RK30_PIN3_PD0                 
         #define RK30SDK_WIFI_GPIO_POWER_ENABLE_VALUE    GPIO_HIGH                   
         #define RK30SDK_WIFI_GPIO_POWER_PIN_NAME        "wifi_power"
         #define RK30SDK_WIFI_GPIO_POWER_IOMUX_FGPIO     GPIO3_D0
+
+		//wake up host gpio
+	    #define RK30SDK_WIFI_GPIO_WIFI_INT_B                RK30_PIN3_PD2
+    	#define RK30SDK_WIFI_GPIO_WIFI_INT_B_ENABLE_VALUE   GPIO_HIGH
 
         #define RK30SDK_WIFI_GPIO_RESET_N               RK30_PIN2_PA7
         #define RK30SDK_WIFI_GPIO_RESET_ENABLE_VALUE    GPIO_HIGH 
         #define RK30SDK_WIFI_GPIO_RESET_PIN_NAME        "wifi_reset"
         #define RK30SDK_WIFI_GPIO_RESET_IOMUX_FGPIO     GPIO2_A7
     
-    #elif defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MT5931)
+    #elif defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MT5931) || defined(CONFIG_MTK_MT5931)
 
 		#ifdef  CONFIG_MACH_RK3168_LR097 
 	    	#define RK30SDK_WIFI_GPIO_POWER_N               RK30_PIN3_PD0 
@@ -176,9 +180,9 @@
 
     #endif   
 #elif defined(CONFIG_ARCH_RK2928) //refer to file ./arch/arm/mach-rk2928/include/mach/iomux.h
-    #define WIFI_HOST_WAKE RK2928_PIN3_PC0 
 
-	#if defined(CONFIG_RKWIFI) || defined(CONFIG_BCM4329) || defined(CONFIG_BCM4319) || defined(CONFIG_RTL8189ES)
+	#if defined(CONFIG_RKWIFI) || defined(CONFIG_BCM4329) || defined(CONFIG_BCM4319) || defined(CONFIG_RTL8189ES) \
+		|| defined(CONFIG_RTL8723BS)
         #define RK30SDK_WIFI_GPIO_POWER_N               RK2928_PIN0_PD6
         #define RK30SDK_WIFI_GPIO_POWER_ENABLE_VALUE    GPIO_HIGH
         #define RK30SDK_WIFI_GPIO_POWER_PIN_NAME        GPIO0D6_MMC1_PWREN_NAME
@@ -186,6 +190,9 @@
 
         #define RK30SDK_WIFI_GPIO_RESET_N               RK2928_PIN3_PC2
         #define RK30SDK_WIFI_GPIO_RESET_ENABLE_VALUE    GPIO_HIGH
+		//wake up host gpio
+	    #define RK30SDK_WIFI_GPIO_WIFI_INT_B                RK2928_PIN3_PC0
+    	#define RK30SDK_WIFI_GPIO_WIFI_INT_B_ENABLE_VALUE   GPIO_HIGH
         //You need not define the pin-iomux-name due to the pin only used gpio.
         //#define RK30SDK_WIFI_GPIO_RESET_PIN_NAME        GPIO3C2_SDMMC1DATA1_NAME 
         //#define RK30SDK_WIFI_GPIO_RESET_IOMUX_FGPIO     GPIO3C_GPIO3C2
@@ -202,7 +209,8 @@
         //#define RK30SDK_WIFI_GPIO_RESET_IOMUX_FGPIO     GPIO3C_GPIO3C2
 
 
-        #elif defined(CONFIG_RTL8192CU) || defined(CONFIG_RTL8188EU) || defined(CONFIG_RTL8723AU)
+        #elif defined(CONFIG_RTL8192CU) || defined(CONFIG_RTL8188EU) || defined(CONFIG_RTL8723AU) \
+			|| defined(CONFIG_RTL8192DU)
         #define RK30SDK_WIFI_GPIO_POWER_N               RK2928_PIN0_PD6
         #define RK30SDK_WIFI_GPIO_POWER_ENABLE_VALUE    GPIO_LOW
         #define RK30SDK_WIFI_GPIO_POWER_PIN_NAME        GPIO0D6_MMC1_PWREN_NAME
@@ -212,16 +220,18 @@
     
 #else //default for RK30,RK3066 SDK
     // refer to file /arch/arm/mach-rk30/include/mach/Iomux.h
-    #define WIFI_HOST_WAKE RK30_PIN3_PD2
 
     #if defined(CONFIG_RKWIFI) || defined(CONFIG_RTL8192CU) || defined(CONFIG_RTL8188EU) || defined(CONFIG_RTL8723AU) \
-		|| defined(CONFIG_RTL8189ES) || defined(CONFIG_MT7601) || defined(CONFIG_ESP8089)
+		|| defined(CONFIG_RTL8189ES) || defined(CONFIG_RTL8723BS) || defined(CONFIG_RTL8192DU)|| defined(CONFIG_ESP8089)
     //power
     #define RK30SDK_WIFI_GPIO_POWER_N               RK30_PIN3_PD0            
     #define RK30SDK_WIFI_GPIO_POWER_ENABLE_VALUE    GPIO_HIGH        
     //reset
     #define RK30SDK_WIFI_GPIO_POWER_PIN_NAME        GPIO3D0_SDMMC1PWREN_NAME
     #define RK30SDK_WIFI_GPIO_POWER_IOMUX_FGPIO     GPIO3D_GPIO3D0
+	//wake up host gpio
+	#define RK30SDK_WIFI_GPIO_WIFI_INT_B                RK30_PIN3_PD2
+    #define RK30SDK_WIFI_GPIO_WIFI_INT_B_ENABLE_VALUE   GPIO_HIGH
     
     #elif defined(CONFIG_BCM4329) || defined(CONFIG_BCM4319) 
     //power
@@ -235,10 +245,7 @@
     #define RK30SDK_WIFI_GPIO_RESET_PIN_NAME        GPIO3D1_SDMMC1BACKENDPWR_NAME
     #define RK30SDK_WIFI_GPIO_RESET_IOMUX_FGPIO     GPIO3D_GPIO3D1
     
-	#define RK30SDK_WIFI_GPIO_WIFI_INT_B                RK30_PIN3_PD2
-    #define RK30SDK_WIFI_GPIO_WIFI_INT_B_ENABLE_VALUE   GPIO_HIGH
-	
-    #elif defined(CONFIG_MT5931) || defined(CONFIG_MT5931_MT6622)
+    #elif defined(CONFIG_MT5931) || defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MTK_MT5931)
     //power
     #define RK30SDK_WIFI_GPIO_POWER_N               RK30_PIN3_PC6 //RK30_PIN3_PD0       // huweiguo          
     #define RK30SDK_WIFI_GPIO_POWER_ENABLE_VALUE    GPIO_HIGH                   
@@ -1151,7 +1158,7 @@ void rk29_sdmmc_gpio_open(int device_id, int on)
                 gpio_request(rksdmmc1_gpio_init.data0_gpio.io, "mmc1-data0");
                 gpio_direction_output(rksdmmc1_gpio_init.data0_gpio.io,GPIO_LOW);//set mmc1-data0 to low.
                 
-            #if defined(CONFIG_WIFI_COMBO_MODULE_CONTROL_FUNC) || defined(CONFIG_MT5931) || defined(CONFIG_MT5931_MT6622)
+            #if defined(CONFIG_WIFI_COMBO_MODULE_CONTROL_FUNC) || defined(CONFIG_MT5931) || defined(CONFIG_MT5931_MT6622) || defined(CONFIG_MTK_MT5931)
                 #if SDMMC_USE_NEW_IOMUX_API
                 iomux_set(rksdmmc1_gpio_init.data1_gpio.iomux.fgpio);
                 #else
@@ -1703,8 +1710,8 @@ static int __init rk29sdk_wifi_bt_gpio_control_init(void)
     return 0;
 }
 
-#if (defined(CONFIG_RTL8192CU) || defined(CONFIG_RTL8188EU) || defined(CONFIG_RTL8723AU)) \
-	&& defined(CONFIG_ARCH_RK2928)
+#if (defined(CONFIG_RTL8192CU) || defined(CONFIG_RTL8188EU) || defined(CONFIG_RTL8723AU) \
+	|| defined(CONFIG_RTL8192DU)) && defined(CONFIG_ARCH_RK2928)
 static int usbwifi_power_status = 1;
 int rk29sdk_wifi_power(int on)
 {
@@ -1791,10 +1798,55 @@ int rk29sdk_wifi_set_carddetect(int val)
 EXPORT_SYMBOL(rk29sdk_wifi_set_carddetect);
 
 
+#include <linux/etherdevice.h>
+u8 wifi_custom_mac_addr[6] = {0,0,0,0,0,0};
+extern char GetSNSectorInfo(char * pbuf);
+int rk29sdk_wifi_mac_addr(unsigned char *buf)
+{
+       char mac_buf[20] = {0};
+    printk("rk29sdk_wifi_mac_addr.\n");
+
+    // from vflash
+    if(is_zero_ether_addr(wifi_custom_mac_addr)) {
+       int i;
+       char *tempBuf = kmalloc(512, GFP_KERNEL);
+       if(tempBuf) {
+           GetSNSectorInfo(tempBuf);
+           for (i = 506; i <= 511; i++)
+               wifi_custom_mac_addr[i-506] = tempBuf[i];
+           kfree(tempBuf);
+       } else {
+           return -1;
+       }
+    }
+
+    sprintf(mac_buf,"%02x:%02x:%02x:%02x:%02x:%02x",wifi_custom_mac_addr[0],wifi_custom_mac_addr[1],
+    wifi_custom_mac_addr[2],wifi_custom_mac_addr[3],wifi_custom_mac_addr[4],wifi_custom_mac_addr[5]);
+    printk("falsh wifi_custom_mac_addr=[%s]\n", mac_buf);
+
+    if (is_valid_ether_addr(wifi_custom_mac_addr)) {
+		if (2 == (wifi_custom_mac_addr[0] & 0x0F)) {
+            printk("This mac address come into conflict with the address of direct, ignored...\n");
+            return -1;
+        }
+    } else {
+        printk("This mac address is not valid, ignored...\n");
+        return -1;
+    }
+
+#if defined(CONFIG_RKWIFI)
+    memcpy(buf, wifi_custom_mac_addr, 6);
+#else
+    memcpy(buf, mac_buf, strlen(mac_buf));//realtek's wifi use this branch
+#endif
+    return 0;
+}
+EXPORT_SYMBOL(rk29sdk_wifi_mac_addr);
+
 static struct resource resources[] = {
 	{
-		.start = WIFI_HOST_WAKE,
-		.flags = IORESOURCE_IRQ,
+		.start = RK30SDK_WIFI_GPIO_WIFI_INT_B,
+		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
 		.name = "bcmdhd_wlan_irq",
 	},
 };
@@ -2058,6 +2110,7 @@ static struct wifi_platform_data rk29sdk_wifi_control = {
         .set_reset = rk29sdk_wifi_reset,
         .set_carddetect = rk29sdk_wifi_set_carddetect,
         .mem_prealloc   = rk29sdk_mem_prealloc,
+		.get_mac_addr   = rk29sdk_wifi_mac_addr,
 };
 
 static struct platform_device rk29sdk_wifi_device = {

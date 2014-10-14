@@ -336,7 +336,6 @@ static inline unsigned int sub(unsigned int a, unsigned int b)
 		return a - b;
 	return 0;
 }
-
 #define HW_PARAMS_FLAG_LPCM 0
 #define HW_PARAMS_FLAG_NLPCM 1
 

@@ -43,6 +43,7 @@
 #endif
 
 #define read_pwm_reg(addr)              __raw_readl(pwm_base + addr)
+#define write_pwm_reg(data,addr)		__raw_writel(data,pwm_base + addr)
 
 static struct clk *pwm_clk;
 static void __iomem *pwm_base;
@@ -182,13 +183,26 @@ static int rk29_bl_update_status(struct backlight_device *bl)
 	}else if(!(bl->props.state & BL_CORE_DRIVER2) && suspend_flag ){
 		suspend_flag = 0;
 	}
-	div_total = read_pwm_reg(PWM_REG_LRC);
+#if defined CONFIG_ARCH_RK319X
+	div_total = read_pwm_reg(PWM_REG_PERIOD_HPR);
+
+	if (ref) {
+		divh = div_total*brightness/BL_STEP;
+	} else {
+		divh = div_total*(BL_STEP-brightness)/BL_STEP;
+	}
+	//rk_pwm_setup(id, PWM_DIV, divh, div_total);
+	 write_pwm_reg(divh,PWM_REG_DUTY_LRC);	
+
+#else
+  	div_total = read_pwm_reg(PWM_REG_LRC);
 	if (ref) {
 		divh = div_total*brightness/BL_STEP;
 	} else {
 		divh = div_total*(BL_STEP-brightness)/BL_STEP;
 	}
 	rk_pwm_setup(id, PWM_DIV, divh, div_total);
+#endif
 
 //BL_CORE_DRIVER1 is the flag if backlight pwm is closed.
 	if ((bl->props.state & BL_CORE_DRIVER1) && brightness ==0 ){  
@@ -202,18 +216,29 @@ static int rk29_bl_update_status(struct backlight_device *bl)
 			rk29_bl_info->pwm_resume();
 		clk_enable(pwm_clk);
 		msleep(1);
-		div_total = read_pwm_reg(PWM_REG_LRC);
+#if defined CONFIG_ARCH_RK319X
+	div_total = read_pwm_reg(PWM_REG_PERIOD_HPR);
+	if (ref) {
+		divh = div_total*brightness/BL_STEP;
+	} else {
+		divh = div_total*(BL_STEP-brightness)/BL_STEP;
+	}
+	//rk_pwm_setup(id, PWM_DIV, divh, div_total);
+	 write_pwm_reg(divh,PWM_REG_DUTY_LRC);	
+
+
+#else
+  	div_total = read_pwm_reg(PWM_REG_LRC);
 		if (ref) {
 			divh = div_total*brightness/BL_STEP;
 		} else {
 			divh = div_total*(BL_STEP-brightness)/BL_STEP;
 		}
 		rk_pwm_setup(id, PWM_DIV, divh, div_total);
+#endif
+		
 	}
 
-
-
-	DBG("%s:line=%d,brightness = %d, div_total = %d, divh = %d state=%x \n",__FUNCTION__,__LINE__,brightness, div_total, divh,bl->props.state);
 out:
 	mutex_unlock(&backlight_mutex);
 	return 0;
@@ -224,10 +249,13 @@ static int rk29_bl_get_brightness(struct backlight_device *bl)
 	u32 divh,div_total;
 	struct rk29_bl_info *rk29_bl_info = bl_get_data(bl);
 	u32 ref = rk29_bl_info->bl_ref;
-
+#if defined CONFIG_ARCH_RK319X
+	div_total = read_pwm_reg(PWM_REG_PERIOD_HPR);
+	divh       = read_pwm_reg(PWM_REG_DUTY_LRC);
+#else
 	div_total = read_pwm_reg(PWM_REG_LRC);
 	divh = read_pwm_reg(PWM_REG_HRC);
-
+#endif
 	if (!div_total)
 		return 0;
 
@@ -301,9 +329,13 @@ void rk29_backlight_set(bool on)
 }
 EXPORT_SYMBOL(rk29_backlight_set);
 #endif
+#ifdef CONFIG_BATTERY_RK30_ADC_FAC
+extern int adc_battery_notifier_call_chain(unsigned long val);
+#endif
 
 static int rk29_backlight_probe(struct platform_device *pdev)
-{		
+{	
+
 	int ret = 0;
 	struct rk29_bl_info *rk29_bl_info = pdev->dev.platform_data;
 	u32 id  =  rk29_bl_info->pwm_id;
@@ -355,7 +387,9 @@ static int rk29_backlight_probe(struct platform_device *pdev)
 	}
 
 	pwm_base = rk_pwm_get_base(id);
-	pwm_clk = rk_pwm_get_clk(id);
+
+	pwm_clk =    rk_pwm_get_clk(id);
+
 	if (IS_ERR(pwm_clk) || !pwm_clk) {
 		printk(KERN_ERR "failed to get pwm clock source\n");
 		return -ENODEV;
@@ -363,7 +397,11 @@ static int rk29_backlight_probe(struct platform_device *pdev)
 	pwm_clk_rate = clk_get_rate(pwm_clk);
 	div_total = pwm_clk_rate / pre_div;
 
+#if defined CONFIG_ARCH_RK319X
+	div_total >>=  (PWM_DIV >> 12);
+#else
 	div_total >>= (1 + (PWM_DIV >> 9));
+#endif
 	div_total = (div_total) ? div_total : 1;
 
 	if(rk29_bl_info->bl_ref) {
@@ -373,22 +411,25 @@ static int rk29_backlight_probe(struct platform_device *pdev)
 	}
 
 	clk_enable(pwm_clk);
+
 	rk_pwm_setup(id, PWM_DIV, divh, div_total);
 
 	rk29_bl->props.power = FB_BLANK_UNBLANK;
 	rk29_bl->props.fb_blank = FB_BLANK_UNBLANK;
-	rk29_bl->props.brightness = BL_STEP / 2;
+	rk29_bl->props.brightness = BL_STEP /2;
 	rk29_bl->props.state = BL_CORE_DRIVER1;		
-
 	schedule_delayed_work(&rk29_backlight_work, msecs_to_jiffies(rk29_bl_info->delay_ms));
 	ret = device_create_file(&pdev->dev,&dev_attr_rk29backlight);
+	
 	if(ret)
 	{
 		dev_err(&pdev->dev, "failed to create sysfs file\n");
 	}
 
 	register_early_suspend(&bl_early_suspend);
-
+#ifdef CONFIG_BATTERY_RK30_ADC_FAC
+	adc_battery_notifier_call_chain(BACKLIGHT_ON);
+#endif
 	printk("RK29 Backlight Driver Initialized.\n");
 	return ret;
 }

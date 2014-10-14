@@ -29,8 +29,9 @@ obj-$(CONFIG_LIGHT_SENSOR_DEVICE) += lightsensor/
 obj-$(CONFIG_MAG_SENSORS)	+= magnetometer/
 
 obj-$(CONFIG_SENSOR_DEVICE)	+= sensors/
-obj-$(CONFIG_RK_REMOTECTL)      += remotectl/
 obj-$(CONFIG_TS_AUTO)	+= ts/
 
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o
+obj-$(CONFIG_RK_LID)    += rk-lid.o
+obj-$(CONFIG_ROCKCHIP_REMOTECTL) +=remotectl/

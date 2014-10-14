@@ -14,7 +14,6 @@ extern int platform_device_register(struct platform_device *pdev);
 int tps65910_pre_init(struct tps65910 *tps65910){
 
 	int val = 0;
-	int i 	= 0;
 	int err = -1;
 		
 	printk("%s,line=%d\n", __func__,__LINE__);	
@@ -38,7 +37,7 @@ int tps65910_pre_init(struct tps65910 *tps65910){
 	gpio_direction_output(PMU_POWER_SLEEP, GPIO_LOW);
 	#endif
 
-
+#if 0
 	/*************set vdd11 (pll) voltage 1.0v********************/
 	val = tps65910_reg_read(tps65910, TPS65910_VDIG2);
 	if (val<0) {
@@ -52,7 +51,7 @@ int tps65910_pre_init(struct tps65910 *tps65910){
 		return err;
 	}
 	/****************************************/
-	
+#endif	
 	val = tps65910_reg_read(tps65910, TPS65910_DEVCTRL2);
 	if (val<0) {
 		printk(KERN_ERR "Unable to read TPS65910_DEVCTRL2 reg\n");
@@ -92,7 +91,8 @@ int tps65910_pre_init(struct tps65910 *tps65910){
 	}
 
 	val |= (1<<5);		//when 1: 1.5 A
-	val |= (0x07<<2);	//TSTEP[2:0] = 111 : 2.5 mV/¦Ìs(sampling 3 Mhz/5)
+	val &= (~(0x3 <<2));
+	val |= (0x01<<2);	//TSTEP[3:2] = 01 : 12.5 mV/us(sampling 3 Mhz)
 	err = tps65910_reg_write(tps65910, TPS65910_VDD1, val);
 	if (err) {
 		printk(KERN_ERR "Unable to write TPS65910_VDD1 reg\n");
@@ -107,6 +107,8 @@ int tps65910_pre_init(struct tps65910 *tps65910){
 	}
 
 	val |= (1<<5);		//when 1: 1.5 A
+	val &= (~(0x3 <<2));
+	val |= (0x01<<2);	//TSTEP[3:2] = 01 : 12.5 mV/us(sampling 3 Mhz)
 	err = tps65910_reg_write(tps65910, TPS65910_VDD2, val);
 	if (err) {
 		printk(KERN_ERR "Unable to write TPS65910_VDD2 reg\n");
@@ -219,7 +221,6 @@ int tps65910_pre_init(struct tps65910 *tps65910){
                 printk(KERN_ERR "Unable to read TPS65910_DCDCCTRL reg\n");
                 return val;
         }
-	
 	val |= 0x0b;
 	err = tps65910_reg_write(tps65910, TPS65910_SLEEP_SET_LDO_OFF, val);
 	if (err) {
@@ -243,14 +244,14 @@ int tps65910_pre_init(struct tps65910 *tps65910){
 	#endif
 	#endif
 	
-	/**********************set arm in pwm ****************/
+	/*****************set arm  and logic (dc1&dc2)in pwm ****************/
 	  val = tps65910_reg_read(tps65910, TPS65910_DCDCCTRL);
         if (val<0) {
                 printk(KERN_ERR "Unable to read TPS65910_DCDCCTRL reg\n");
                 return val;
         }
 	
-	val &= ~(1<<4);
+	val &= ~(3<<4);
 	err = tps65910_reg_write(tps65910, TPS65910_DCDCCTRL, val);
 	if (err) {
 		printk(KERN_ERR "Unable to read TPS65910 Reg at offset 0x%x= \
@@ -305,7 +306,8 @@ static struct regulator_consumer_supply tps65910_smps1_supply[] = {
 	{
 		.supply = "vdd1",
 	},
-	#if defined(CONFIG_SOC_RK3168) || defined(CONFIG_ARCH_RK3188)
+	#if defined(CONFIG_SOC_RK3168) || defined(CONFIG_ARCH_RK3188) || defined(CONFIG_SOC_RK3028) ||defined(CONFIG_MACH_RK3028A_86V)||defined(CONFIG_MACH_RK3028A_FAC)
+
 	{
 		.supply = "vdd_core",
 	},
@@ -319,7 +321,16 @@ static struct regulator_consumer_supply tps65910_smps2_supply[] = {
 	{
 		.supply = "vdd2",
 	},
-	
+	#if defined(CONFIG_MACH_RK3168_86V) || defined(CONFIG_SOC_RK3028)||defined(CONFIG_MACH_RK3168_FAC) ||defined(CONFIG_MACH_RK3028A_86V)||defined(CONFIG_MACH_RK3028A_FAC)
+
+	{
+                .supply = "vdd_cpu",
+        },
+        #elif (defined(CONFIG_MACH_RK3026_86V)||defined(CONFIG_MACH_RK3026_86V_FAC))
+	{
+		.supply = "vdd_core",
+	},
+	#endif
 };
 static struct regulator_consumer_supply tps65910_smps3_supply[] = {
 	{
@@ -553,7 +564,7 @@ static struct regulator_init_data tps65910_ldo8 = {
 		.min_uV			= 1000000,
 		.max_uV			= 2500000,
 		.apply_uV		= 1,
-		.always_on = 1,
+//		.always_on = 1,
 		.valid_ops_mask = REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_MODE,
 		.valid_modes_mask = REGULATOR_MODE_STANDBY | REGULATOR_MODE_NORMAL,
 
@@ -572,7 +583,7 @@ void __sramfunc board_pmu_tps65910_resume(void)
 {
 	#ifdef CONFIG_CLK_SWITCH_TO_32K
  	sram_gpio_set_value(pmic_sleep, GPIO_LOW);  
-	sram_32k_udelay(2000);
+	sram_32k_udelay(10000);
 	#endif
 }
 static struct tps65910_board tps65910_data = {

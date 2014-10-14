@@ -1068,7 +1068,15 @@ static void debug_fiq(struct fiq_glue_handler *h, void *regs, void *svc_sp)
 	if(!(readl_relaxed(RK30_GRF_BASE + 0x00ac) & (1 << 13))){//id low          
 		writel_relaxed((0x0300 << 16), RK30_GRF_BASE + 0x010c);   //enter usb phy    
 	}
+#elif defined(CONFIG_ARCH_RK3026)
+    if(!(readl_relaxed(RK2928_GRF_BASE + 0x14c) & (1<<10)) ||
+       (readl_relaxed(RK2928_GRF_BASE + 0x14c) & (1<<7)))
+        
+    {
+        writel_relaxed(0x34000000, RK2928_GRF_BASE + 0x190);
+    }
 #endif
+
 #endif
 	need_irq = debug_handle_uart_interrupt(state, this_cpu, regs, svc_sp);
 	if (need_irq)

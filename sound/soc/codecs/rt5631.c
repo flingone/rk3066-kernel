@@ -26,7 +26,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
-
+#include <sound/tlv.h>
 #include "rt5631.h"
 #include <linux/timer.h>
 
@@ -35,7 +35,11 @@
 #else
 #define DBG(x...)
 #endif
-#define RT5631_VERSION "0.01 alsa 1.0.24"
+/*
+1.0.25
+     add support sample rate up to 192k
+*/
+#define RT5631_VERSION "0.01 alsa 1.0.25"
 
 #define RT5631_ALC_DAC_FUNC_ENA 0	//ALC functio for DAC
 #define RT5631_ALC_ADC_FUNC_ENA 0	//ALC function for ADC
@@ -56,6 +60,9 @@ struct work_struct  spk_work;
 static int last_is_spk = -1;	//bard 9-13
 #endif
 
+#ifdef CONFIG_MACH_RK_FAC 
+	rt5631_hdmi_ctrl=0;
+#endif
 static struct snd_soc_codec *rt5631_codec;
 struct delayed_work rt5631_delay_cap; //bard 7-16
 EXPORT_SYMBOL(rt5631_delay_cap); //bard 7-16
@@ -66,7 +73,7 @@ bool isPlaybackon = false, isCaptureon = false;
 module_param(timesofbclk, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(timeofbclk, "relationship between bclk and fs");
 
-
+static const DECLARE_TLV_DB_SCALE(dac_vol_tlv, -9435, 37, 0);
 static inline int rt5631_write(struct snd_soc_codec *codec,
 			unsigned int reg, unsigned int val)
 {
@@ -475,7 +482,7 @@ SOC_ENUM("MIC1 Boost", rt5631_enum[6]),
 SOC_ENUM("MIC2 Mode Control", rt5631_enum[4]),
 SOC_ENUM("MIC2 Boost", rt5631_enum[7]),
 SOC_ENUM("MONOIN Mode Control", rt5631_enum[5]),
-SOC_DOUBLE("PCM Playback Volume", RT5631_STEREO_DAC_VOL_2, 8, 0, 255, 1),
+SOC_DOUBLE_TLV("PCM Playback Volume", RT5631_STEREO_DAC_VOL_2, 8, 0, 255, 1, dac_vol_tlv),
 SOC_DOUBLE("PCM Playback Switch", RT5631_STEREO_DAC_VOL_1, 15, 7, 1, 1),
 SOC_DOUBLE("MONOIN_RX Capture Volume", RT5631_MONO_INPUT_VOL, 8, 0, 31, 1),
 SOC_DOUBLE("AXI Capture Volume", RT5631_AUX_IN_VOL, 8, 0, 31, 1),
@@ -1574,6 +1581,10 @@ struct coeff_clk_div coeff_div[] = {
 	{22579200,  88200 * 64,  88200,  0x0000},
 	{24576000,  96000 * 32,  96000,  0x1000},
 	{24576000,  96000 * 64,  96000,  0x0000},
+	{22579200,  176400 * 32,  176400,  0x1000},
+	{22579200,  176400 * 64,  176400,  0x0000},
+	{24576000,  192000 * 32,  192000,  0x1000},
+	{24576000,  162000 * 64,  192000,  0x0000},
 	/* sysclk is 512fs */
 	{4096000,  8000 * 32,  8000, 0x3000},
 	{4096000,  8000 * 64,  8000, 0x2000},
@@ -1889,7 +1900,7 @@ static ssize_t rt5631_index_reg_show(struct device *dev,
 }
 static DEVICE_ATTR(index_reg, 0444, rt5631_index_reg_show, NULL);
 
-#define RT5631_STEREO_RATES SNDRV_PCM_RATE_8000_96000
+#define RT5631_STEREO_RATES SNDRV_PCM_RATE_8000_192000
 #define RT5631_FORMAT	(SNDRV_PCM_FMTBIT_S16_LE | \
 			SNDRV_PCM_FMTBIT_S20_3LE | \
 			SNDRV_PCM_FMTBIT_S24_LE | \
@@ -2086,6 +2097,34 @@ static int rt5631_resume(struct snd_soc_codec *codec)
 	return 0;
 }
 
+#ifdef CONFIG_MACH_RK_FAC
+void rt5631_codec_set_spk(bool on)
+{
+	struct snd_soc_codec *codec = rt5631_codec;	
+	if(rt5631_hdmi_ctrl)
+	{
+		DBG("%s: %d\n", __func__, on);
+		
+		if(!codec)
+			return;
+		mutex_lock(&codec->mutex);
+		if(on){
+			DBG("snd_soc_dapm_enable_pin\n");
+			snd_soc_dapm_enable_pin(&codec->dapm, "Headphone Jack");
+			snd_soc_dapm_enable_pin(&codec->dapm, "Ext Spk");
+		}
+		else{
+			DBG("snd_soc_dapm_disable_pin\n");
+			snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack");
+			snd_soc_dapm_disable_pin(&codec->dapm, "Ext Spk");
+		}
+	
+		snd_soc_dapm_sync(&codec->dapm);
+		mutex_unlock(&codec->mutex);
+	}
+	return;
+}
+#else
 void codec_set_spk(bool on)
 {
 	struct snd_soc_codec *codec = rt5631_codec;
@@ -2110,6 +2149,7 @@ void codec_set_spk(bool on)
 	mutex_unlock(&codec->mutex);
 	return;
 }
+#endif 
 
 /*
  * detect short current for mic1
@@ -2158,7 +2198,7 @@ static int rt5631_i2c_probe(struct i2c_client *i2c,
 	struct rt5631_priv *rt5631;
 	int ret;
 
-	DBG("RT5631 Audio Codec %s\n", RT5631_VERSION);
+	printk("RT5631 Audio Codec %s\n", RT5631_VERSION);
 
 	rt5631 = kzalloc(sizeof(struct rt5631_priv), GFP_KERNEL);
 	if (NULL == rt5631)
@@ -2170,6 +2210,9 @@ static int rt5631_i2c_probe(struct i2c_client *i2c,
 			rt5631_dai, ARRAY_SIZE(rt5631_dai));
 	if (ret < 0)
 		kfree(rt5631);
+#ifdef CONFIG_MACH_RK_FAC             
+  	rt5631_hdmi_ctrl=1;
+#endif 
 
 	return ret;
 }

@@ -80,6 +80,7 @@ static void option_instat_callback(struct urb *urb);
 #define OPTION_PRODUCT_GTM380_MODEM		0x7201
 
 #define HUAWEI_VENDOR_ID			0x12D1
+#define HUAWEI_PRODUCT_MU509                    0x1001
 #define HUAWEI_PRODUCT_E173			0x140C
 #define HUAWEI_PRODUCT_E140C                    0x140C
 #define HUAWEI_PRODUCT_K4505			0x1464
@@ -332,6 +333,7 @@ static void option_instat_callback(struct urb *urb);
 /* Haier products */
 #define HAIER_VENDOR_ID				0x201e
 #define HAIER_PRODUCT_CE100			0x2009
+#define HAIER_PRODUCT_IE701			0x1022
 
 /* Cinterion (formerly Siemens) products */
 #define SIEMENS_VENDOR_ID				0x0681
@@ -475,7 +477,13 @@ static void option_instat_callback(struct urb *urb);
 /* Changhong products */
 #define CHANGHONG_VENDOR_ID			0x2077
 #define CHANGHONG_PRODUCT_CH690			0x7001
+/* Strong Rising WCDMA modem*/
+#define STRONG_RISING_VENDOR_ID     0x21F5
+#define STRONG_RISING_PRODUCT_SPW9S  0x2012
+/* Strong Rising EVDO modem*/
+#define STRONG_RISING_PRODUCT_SP8J  0x2009
 
+static int viatelecom_send_setup(struct usb_serial_port *port);
 /* some devices interfaces need special handling due to a number of reasons */
 enum option_blacklist_reason {
 		OPTION_BLACKLIST_NONE = 0,
@@ -597,6 +605,7 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_GLX) },
 	{ USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_GKE) },
 	{ USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_GLE) },
+	{ USB_DEVICE(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_MU509) },
         { USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E140C, 0xff, 0xff, 0xff) },
 	//{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E173, 0xff, 0xff, 0xff),
 	//	.driver_info = (kernel_ulong_t) &net_intf1_blacklist },
@@ -938,6 +947,7 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0137, 0xff, 0xff, 0xff) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0139, 0xff, 0xff, 0xff) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0142, 0xff, 0xff, 0xff) },
+	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1435, 0xff, 0xff, 0xff) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0143, 0xff, 0xff, 0xff) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0144, 0xff, 0xff, 0xff) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0145, 0xff, 0xff, 0xff) },
@@ -1322,6 +1332,9 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE(0x1d09, 0x1010) },
     { USB_DEVICE(0x19D2, 0x1181) },
 	{ USB_DEVICE(0x2020, 0x1005)},//S830 3G Dongle
+    { USB_DEVICE(0x1782, 0x0002)},//U7501
+    { USB_DEVICE(0x1782, 0x4D00)},
+	{ USB_DEVICE(0x21f5, 0x2012) },//SEW290
 // cmy end
 //xxh
    { USB_DEVICE_AND_INTERFACE_INFO(0x05c6, 0x1000, 0xff, 0xff, 0xff) },
@@ -1338,7 +1351,9 @@ static const struct usb_device_id option_ids[] = {
    { USB_DEVICE(0x19d2, 0xffe8) },
    { USB_DEVICE(0x19D2,0x1177) },//K3770-Z
    { USB_DEVICE(0x230D, 0x000c) },
-   { USB_DEVICE(0x21F5, 0x2009) },
+ //  { USB_DEVICE(0x21F5, 0x2009) },
+   {USB_DEVICE(STRONG_RISING_VENDOR_ID,STRONG_RISING_PRODUCT_SP8J)},
+   {USB_DEVICE(STRONG_RISING_VENDOR_ID,STRONG_RISING_PRODUCT_SPW9S)},
    { USB_DEVICE(0x15eb,0x0001)},
    { USB_DEVICE(0x12d1,0x14db) },
    { USB_DEVICE(0x15EB,0x7152)},
@@ -1348,9 +1363,22 @@ static const struct usb_device_id option_ids[] = {
    { USB_DEVICE(0x1C9E,0x9915)},
    { USB_DEVICE(0x1C9E,0x9800)},
    { USB_DEVICE(0x05c6,0x0016)},
+   { USB_DEVICE(0x0B3C,0xC00A)},
+   { USB_DEVICE(0x230D, 0x0103)},
+   { USB_DEVICE(0x1DBC,0x0669)},
+   { USB_DEVICE(0x2020,0x4000)},
    { USB_DEVICE(0x230D, 0x0003)},
    { USB_DEVICE(0x230D, 0x000C)},
    { USB_DEVICE(0x12d1,0x1506)},
+   { USB_DEVICE(0x2001,0x7D00)},//D-Link DWM-156
+   { USB_DEVICE(0x0af0,0xd157)}, 
+   { USB_DEVICE(0x0421,0x0612)},
+   { USB_DEVICE(0x19d2,0x1218)},
+   { USB_DEVICE(HAIER_VENDOR_ID, HAIER_PRODUCT_IE701)},
+   { USB_DEVICE(0x1C9E,0x9914)},
+   { USB_DEVICE(0x19d2,0x1515)},
+   { USB_DEVICE(0x1bbb,0x0012)},
+   { USB_DEVICE(0x1c9e,0x9801)},
 //xxh end
 
 
@@ -1584,6 +1612,15 @@ static int option_probe(struct usb_serial *serial,
 	data = serial->private = kzalloc(sizeof(struct usb_wwan_intf_private), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
+      if ((serial->dev->descriptor.idVendor == HAIER_VENDOR_ID &&
+			  serial->dev->descriptor.idProduct == HAIER_PRODUCT_IE701)||
+			  (serial->dev->descriptor.idVendor == 0x15EB &&
+			  serial->dev->descriptor.idProduct == 0x7152)) {   
+			     
+			    data->send_setup = viatelecom_send_setup;
+				
+		 }else
+
 	data->send_setup = option_send_setup;
 	spin_lock_init(&data->susp_lock);
 	data->private = (void *)id->driver_info;
@@ -1694,9 +1731,34 @@ static int option_send_setup(struct usb_serial_port *port)
 	if (portdata->rts_state)
 		val |= 0x02;
 
-	return usb_control_msg(serial->dev,
-		usb_rcvctrlpipe(serial->dev, 0),
-		0x22, 0x21, val, ifNum, NULL, 0, USB_CTRL_SET_TIMEOUT);
+ return usb_control_msg(serial->dev,
+        usb_rcvctrlpipe(serial->dev, 0),
+         0x22, 0x21, val, ifNum, NULL, 0, USB_CTRL_SET_TIMEOUT);
+ }
+		
+static int viatelecom_send_setup(struct usb_serial_port *port)
+{
+			struct usb_serial *serial = port->serial;
+		    struct usb_wwan_port_private *portdata = usb_get_serial_port_data(port);
+		    int ifNum = serial->interface->cur_altsetting->desc.bInterfaceNumber;
+			dbg("%s", __func__);
+#if 0
+			usb_control_msg(serial->dev,
+		    usb_sndctrlpipe(serial->dev, 0),
+		    0x01, 0x40, 0, ifNum,
+		    NULL, 0, USB_CTRL_SET_TIMEOUT);
+			/* VIA-Telecom CBP DTR format */
+			return usb_control_msg(serial->dev,
+	        usb_sndctrlpipe(serial->dev, 0),
+		    0x01, 0x40, 1, ifNum,
+		    NULL, 0, USB_CTRL_SET_TIMEOUT);
+#else
+		/* VIA-Telecom CBP DTR format */
+		   return usb_control_msg(serial->dev,
+	       usb_sndctrlpipe(serial->dev, 0),
+		   0x01, 0x40, portdata->dtr_state? 1: 0, ifNum,
+		   NULL, 0, USB_CTRL_SET_TIMEOUT);
+#endif
 }
 
 MODULE_AUTHOR(DRIVER_AUTHOR);

@@ -74,6 +74,7 @@ struct rknand_info {
     void (*rknand_resume)(void);
     int (*rknand_re_init)(void);
     void (*rknand_dev_cache_flush)(void);
+    int (*ftl_discard) (int Index, int nSec);  
     int reserved[20];
 };
 

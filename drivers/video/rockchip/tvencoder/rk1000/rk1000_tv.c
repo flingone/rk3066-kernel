@@ -274,7 +274,7 @@ static int rk1000_tv_control_probe(struct i2c_client *client,const struct i2c_de
 	// RK1000 I2C Reg need dclk, so we open lcdc.
 	memset(&screen, 0, sizeof(struct rk29fb_screen));
 	set_lcd_info(&screen, NULL);
-	FB_Switch_Screen(&screen, 1);
+	FB_Switch_Screen(&screen, 2);
 	//Power down RK1000 output DAC.
     buff = 0x07;  
     rc = rk1000_tv_control_set_reg(client, 0x03, &buff, 1);
@@ -294,7 +294,7 @@ static int rk1000_tv_control_probe(struct i2c_client *client,const struct i2c_de
 	#ifdef CONFIG_HAS_EARLYSUSPEND
 	rk1000.early_suspend.suspend = rk1000_early_suspend;
 	rk1000.early_suspend.resume = rk1000_early_resume;
-	rk1000.early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB - 10;
+	rk1000.early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB - 11;
 	register_early_suspend(&(rk1000.early_suspend));
 	#endif
 	
@@ -310,6 +310,12 @@ static int rk1000_tv_control_remove(struct i2c_client *client)
 	return 0;
 }
 
+static int rk1000_tv_control_shutdown(struct i2c_client *client)
+{
+	int buffer = 0x07;
+    rk1000_tv_control_set_reg(client, 0x03, &buffer, 1);
+    return 0;
+}
 
 static const struct i2c_device_id rk1000_tv_control_id[] = {
 	{ DRV_NAME, 0 },
@@ -324,6 +330,7 @@ static struct i2c_driver rk1000_tv_control_driver = {
 	.id_table = rk1000_tv_control_id,
 	.probe = rk1000_tv_control_probe,
 	.remove = rk1000_tv_control_remove,
+	.shutdown = rk1000_tv_control_shutdown,
 };
 
 static int __init rk1000_tv_init(void)
@@ -341,7 +348,8 @@ static void __exit rk1000_tv_exit(void)
     i2c_del_driver(&rk1000_tv_control_driver);
 }
 
-module_init(rk1000_tv_init);
+//module_init(rk1000_tv_init);
+late_initcall(rk1000_tv_init);
 module_exit(rk1000_tv_exit);
 
 /* Module information */

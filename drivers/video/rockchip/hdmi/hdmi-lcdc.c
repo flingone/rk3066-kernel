@@ -6,13 +6,23 @@ static const struct hdmi_video_timing hdmi_mode [] = {
 		//name				refresh		xres	yres	pixclock	h_bp	h_fp	v_bp	v_fp	h_pw	v_pw					polariry								PorI	flag	vic	pixelrepeat	interface
 	{ {	"720x480p@60Hz",	60,			720,	480,	27000000,	60,		16,		30,		9,		62,		6,							0,									0,		0	},	2,  	1,		OUT_P888	},
 	{ {	"720x576p@50Hz",	50,			720,	576,	27000000,	68,		12,		39,		5,		64,		5,							0,									0,		0	},	17,  	1,		OUT_P888	},
+//	{ {	"1280x720p@24Hz",	24,			1280,	720,	59400000,	220,	1760,	20,		5,		40,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	60,		1,		OUT_P888	},
+//	{ {	"1280x720p@25Hz",	25,			1280,	720,	74250000,	220,	2420,	20,		5,		40,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	61,		1,		OUT_P888	},
+//	{ {	"1280x720p@30Hz",	30,			1280,	720,	74250000,	220,	1760,	20,		5,		40,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	62,		1,		OUT_P888	},
 	{ {	"1280x720p@50Hz",	50,			1280,	720,	74250000,	220,	440,	20,		5,		40,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	19,  	1,		OUT_P888	},
 	{ {	"1280x720p@60Hz",	60,			1280,	720,	74250000,	220,	110,	20,		5,		40,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	4,  	1,		OUT_P888	},
+//#if defined(CONFIG_ARCH_RK3188)	
+//	{ { "1920x1080i@50Hz",	50,			1920,	1080,	74250000,	148,	528,	15,		2,		44,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			1,		0	},	20,		1,		OUT_CCIR656_M1},
+//	{ {	"1920x1080i@60Hz",	60,			1920,	1080,	74250000,	148,	88,		15,		2,		44,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			1,		0	},	5,  	1,		OUT_CCIR656_M1	},
+//#endif
+//	{ {	"1920x1080p@24Hz",	24,			1920,	1080,	74250000,	148,	638,	36,		4,		44,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	32,		1,		OUT_P888	},
+//	{ {	"1920x1080p@25Hz",	25,			1920,	1080,	74250000,	148,	528,	36,		4,		44,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	33,		1,		OUT_P888	},
+///	{ {	"1920x1080p@30Hz",	30,			1920,	1080,	74250000,	148,	88,		36,		4,		44,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	34,		1,		OUT_P888	},
 	{ {	"1920x1080p@50Hz",	50,			1920,	1080,	148500000,	148,	528,	36,		4,		44,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	31,  	1,		OUT_P888	},
 	{ {	"1920x1080p@60Hz",	60,			1920,	1080,	148500000,	148,	88,		36,		4,		44,		5,		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,			0,		0	},	16,  	1,		OUT_P888	},		
 };
 
-static int hdmi_set_info(struct rk29fb_screen *screen, unsigned int vic)
+int hdmi_set_info(struct rk29fb_screen *screen, unsigned int vic)
 {
     int i;
     struct fb_videomode *mode;
@@ -51,8 +61,12 @@ static int hdmi_set_info(struct rk29fb_screen *screen, unsigned int vic)
 	screen->upper_margin = mode->upper_margin;
 	screen->lower_margin = mode->lower_margin;
 	screen->vsync_len = mode->vsync_len;
-
+   	screen->mode = mode->vmode;
 	/* Pin polarity */
+	#ifdef CONFIG_HDMI_RK616
+	screen->pin_hsync = 0;
+	screen->pin_vsync = 0;
+	#else
 	if(FB_SYNC_HOR_HIGH_ACT & mode->sync)
 		screen->pin_hsync = 1;
 	else
@@ -61,6 +75,7 @@ static int hdmi_set_info(struct rk29fb_screen *screen, unsigned int vic)
 		screen->pin_vsync = 1;
 	else
 		screen->pin_vsync = 0;
+	#endif
 	screen->pin_den = 0;
 	screen->pin_dclk = 1;
 
@@ -127,10 +142,11 @@ int hdmi_set_lcdc(struct hdmi *hdmi)
 	if(hdmi->autoset)
 		hdmi->vic = hdmi_find_best_mode(hdmi, 0);
 	else
-		hdmi->vic = hdmi_find_best_mode(hdmi, hdmi->vic);
+	hdmi->vic = hdmi_find_best_mode(hdmi, hdmi->vic);
+//	printk("%s selected vic is %d\n", __FUNCTION__, hdmi->vic);
 	if(hdmi->vic == 0)
 		hdmi->vic = HDMI_VIDEO_DEFAULT_MODE;
-
+				
 	rc = hdmi_set_info(&screen, hdmi->vic);
 
 	if(rc == 0) {		
@@ -408,9 +424,12 @@ static void hdmi_sort_modelist(struct hdmi_edid *edid)
 	    }
 	}
 	fb_destroy_modelist(head);
-
-	edid->modelist = head_new;
-	edid->modelist.prev->next = &edid->modelist;
+	if(head_new.next == &head_new) {
+		INIT_LIST_HEAD(&edid->modelist);
+	} else {
+		edid->modelist = head_new;
+		edid->modelist.prev->next = &edid->modelist;
+	}
 }
 
 /**
@@ -426,8 +445,8 @@ int hdmi_ouputmode_select(struct hdmi *hdmi, int edid_ok)
 	int i, pixclock;
 	
 	if(edid_ok != HDMI_ERROR_SUCESS) {
-		dev_err(hdmi->dev, "warning: EDID error, assume sink as HDMI !!!!");
-		hdmi->edid.sink_hdmi = 1;
+		dev_err(hdmi->dev, "warning: EDID error, assume sink as DVI !!!!");
+		hdmi->edid.sink_hdmi = 0;
 	}
 
 	if(edid_ok != HDMI_ERROR_SUCESS) {
@@ -435,8 +454,9 @@ int hdmi_ouputmode_select(struct hdmi *hdmi, int edid_ok)
 		hdmi->edid.ycbcr422 = 0;
 		hdmi->autoset = 0;
 	}
+	hdmi_sort_modelist(&hdmi->edid);
 	if(head->next == head) {
-		dev_info(hdmi->dev, "warning: no CEA video mode parsed from EDID !!!!");
+		dev_info(hdmi->dev, "warning: no CEA video mode parsed from EDID !!!!\n");
 		// If EDID get error, list all system supported mode.
 		// If output mode is set to DVI and EDID is ok, check
 		// the output timing.
@@ -476,9 +496,7 @@ int hdmi_ouputmode_select(struct hdmi *hdmi, int edid_ok)
 			hdmi_add_videomode(mode, head);
 		}
 	}
-	else
-		hdmi_sort_modelist(&hdmi->edid);
-		
+	
 //	#ifdef HDMI_DEBUG
 	hdmi_show_sink_info(hdmi);
 //	#endif
@@ -502,6 +520,7 @@ int hdmi_videomode_to_vic(struct fb_videomode *vmode)
 		if(	vmode->vmode == mode->vmode &&
 			vmode->refresh == mode->refresh &&
 			vmode->xres == mode->xres && 
+			vmode->yres == mode->yres &&
 			vmode->left_margin == mode->left_margin &&
 			vmode->right_margin == mode->right_margin &&
 			vmode->upper_margin == mode->upper_margin &&
@@ -509,8 +528,8 @@ int hdmi_videomode_to_vic(struct fb_videomode *vmode)
 			vmode->hsync_len == mode->hsync_len && 
 			vmode->vsync_len == mode->vsync_len)
 		{
-			if( (vmode->vmode == FB_VMODE_NONINTERLACED && vmode->yres == mode->yres) || 
-				(vmode->vmode == FB_VMODE_INTERLACED && vmode->yres == mode->yres/2))
+//			if( (vmode->vmode == FB_VMODE_NONINTERLACED && vmode->yres == mode->yres) || 
+//				(vmode->vmode == FB_VMODE_INTERLACED && vmode->yres == mode->yres/2))
 			{								
 				vic = hdmi_mode[i].vic;
 				break;
@@ -518,6 +537,26 @@ int hdmi_videomode_to_vic(struct fb_videomode *vmode)
 		}
 	}
 	return vic;
+}
+
+/**
+ * hdmi_vic2timing: transverse vic mode to video timing
+ * @vmode: vic to transverse
+ * 
+ */
+const struct hdmi_video_timing* hdmi_vic2timing(int vic)
+{
+	int i;
+	
+	if(vic == 0)
+		return NULL;
+	
+	for(i = 0; i < ARRAY_SIZE(hdmi_mode); i++)
+	{
+		if(hdmi_mode[i].vic == vic)
+			return &(hdmi_mode[i]);
+	}
+	return NULL;
 }
 
 /**

@@ -12,13 +12,14 @@
  * There are run-time debug flags enabled via the debug_mask module param, or
  * via the DEFAULT_DEBUG_MASK. See xt_qtaguid_internal.h.
  */
-#define DEBUG
+//#define DEBUG
 
 #include <linux/file.h>
 #include <linux/inetdevice.h>
 #include <linux/module.h>
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_qtaguid.h>
+#include <linux/ratelimit.h>
 #include <linux/skbuff.h>
 #include <linux/workqueue.h>
 #include <net/addrconf.h>
@@ -1108,18 +1109,28 @@ static void iface_stat_create(struct net_device *net_dev,
 	spin_lock_bh(&iface_stat_list_lock);
 	entry = get_iface_entry(ifname);
 	if (entry != NULL) {
+		#ifndef CONFIG_TRACK_LOCALHOST
 		bool activate = !ipv4_is_loopback(ipaddr);
+		#endif
 		IF_DEBUG("qtaguid: iface_stat: create(%s): entry=%p\n",
 			 ifname, entry);
 		iface_check_stats_reset_and_adjust(net_dev, entry);
+		#if defined CONFIG_TRACK_LOCALHOST
+		_iface_stat_set_active(entry, net_dev, true);
+		#else
 		_iface_stat_set_active(entry, net_dev, activate);
+		#endif
 		IF_DEBUG("qtaguid: %s(%s): "
 			 "tracking now %d on ip=%pI4\n", __func__,
+		#if defined CONFIG_TRACK_LOCALHOST
+		entry->ifname, true, &ipaddr);
+		#else
 			 entry->ifname, activate, &ipaddr);
 		goto done_unlock_put;
 	} else if (ipv4_is_loopback(ipaddr)) {
 		IF_DEBUG("qtaguid: iface_stat: create(%s): "
 			 "ignore loopback dev. ip=%pI4\n", ifname, &ipaddr);
+		#endif
 		goto done_unlock_put;
 	}
 
@@ -1170,19 +1181,29 @@ static void iface_stat_create_ipv6(struct net_device *net_dev,
 	spin_lock_bh(&iface_stat_list_lock);
 	entry = get_iface_entry(ifname);
 	if (entry != NULL) {
+		#ifndef CONFIG_TRACK_LOCALHOST
 		bool activate = !(addr_type & IPV6_ADDR_LOOPBACK);
+		#endif
 		IF_DEBUG("qtaguid: %s(%s): entry=%p\n", __func__,
 			 ifname, entry);
 		iface_check_stats_reset_and_adjust(net_dev, entry);
+		#if defined CONFIG_TRACK_LOCALHOST
+		_iface_stat_set_active(entry, net_dev, true);
+		#else
 		_iface_stat_set_active(entry, net_dev, activate);
+		#endif
 		IF_DEBUG("qtaguid: %s(%s): "
 			 "tracking now %d on ip=%pI6c\n", __func__,
+		#if defined CONFIG_TRACK_LOCALHOST
+		entry->ifname, true, &ifa->addr);
+		#else
 			 entry->ifname, activate, &ifa->addr);
 		goto done_unlock_put;
 	} else if (addr_type & IPV6_ADDR_LOOPBACK) {
 		IF_DEBUG("qtaguid: %s(%s): "
 			 "ignore loopback dev. ip=%pI6c\n", __func__,
 			 ifname, &ifa->addr);
+		#endif
 		goto done_unlock_put;
 	}
 
@@ -1339,12 +1360,12 @@ static void iface_stat_update_from_skb(const struct sk_buff *skb,
 	}
 
 	if (unlikely(!el_dev)) {
-		pr_err("qtaguid[%d]: %s(): no par->in/out?!!\n",
-		       par->hooknum, __func__);
+		pr_err_ratelimited("qtaguid[%d]: %s(): no par->in/out?!!\n",
+				   par->hooknum, __func__);
 		BUG();
 	} else if (unlikely(!el_dev->name)) {
-		pr_err("qtaguid[%d]: %s(): no dev->name?!!\n",
-		       par->hooknum, __func__);
+		pr_err_ratelimited("qtaguid[%d]: %s(): no dev->name?!!\n",
+				   par->hooknum, __func__);
 		BUG();
 	} else {
 		proto = ipx_proto(skb, par);
@@ -1427,8 +1448,8 @@ static void if_tag_stat_update(const char *ifname, uid_t uid,
 
 	iface_entry = get_iface_entry(ifname);
 	if (!iface_entry) {
-		pr_err("qtaguid: iface_stat: stat_update() %s not found\n",
-		       ifname);
+		pr_err_ratelimited("qtaguid: iface_stat: stat_update() "
+				   "%s not found\n", ifname);
 		return;
 	}
 	/* It is ok to process data when an iface_entry is inactive */

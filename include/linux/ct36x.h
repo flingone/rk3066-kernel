@@ -18,6 +18,7 @@ struct ct36x_platform_data{
 	struct ct36x_gpio irq_io;
 
 	int orientation[4];
+	int (*init_platform_hw)(void);
 };
 
 #endif
