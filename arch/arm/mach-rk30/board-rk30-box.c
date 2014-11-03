@@ -102,13 +102,13 @@ static struct rk29_keys_button key_button[] = {
 		//.code_long_press = EV_ENCALL,
 		.wakeup	= 1,
 	},
-	//{
-	//	.desc	= "vol+",
-	//	.code	= KEY_VOLUMEUP,
-	//	.adc_value	= 1,
-	//	.gpio = INVALID_GPIO,
-	//	.active_low = PRESS_LEV_LOW,
-	//},
+	{
+		.desc	= "vol+",
+		.code	= KEY_VOLUMEUP,
+		.adc_value	= 1,
+		.gpio = INVALID_GPIO,
+		.active_low = PRESS_LEV_LOW,
+	},
 #ifndef RK3000_SDK
 	{
 		.desc	= "menu",
