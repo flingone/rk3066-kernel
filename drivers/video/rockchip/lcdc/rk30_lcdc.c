@@ -495,9 +495,9 @@ static int rk30_cursor_set_image(struct rk_lcdc_device_driver *dev_drv,char *img
 	unsigned int   op,shift,offset;
 
 //	memset(cursor_buf, 0x00, CURSOR_BUF_SIZE);
-//	memcpy(cursor_buf, imgdata, CURSOR_BUF_SIZE);
-//	flush_cache_all();
-//	msleep(10);
+	memcpy(cursor_buf, imgdata, CURSOR_BUF_SIZE);
+	flush_cache_all();
+	msleep(10);
 	spin_lock(&lcdc_dev->reg_lock);
 	if(likely(lcdc_dev->clk_on)) {
 	    lcdc_writel(lcdc_dev, HWC_MST, __pa(cursor_buf));
