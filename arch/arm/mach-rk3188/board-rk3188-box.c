@@ -1718,9 +1718,9 @@ static  struct pmu_info  act8846_ldo_info[] = {
 		.max_uv         = 3300000,
 	},
 	{
-		.name          = "act_ldo6",   //vcc_jetta
-		.min_uv          = 1800000,
-		.max_uv         = 1800000,
+		.name          = "act_ldo6",   //vccio_wl
+		.min_uv          = 3300000,
+		.max_uv         = 3300000,
 	},
 	{
 		.name          = "act_ldo7",   //vcc18
