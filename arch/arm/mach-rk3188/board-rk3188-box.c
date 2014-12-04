@@ -2130,14 +2130,14 @@ static struct i2c_board_info __initdata i2c2_info[] = {
 //#endif
 //$_rbox_$_modify_$ zhengyang modified end
 
-#if defined(CONFIG_MFD_RK616)
+/*#if defined(CONFIG_MFD_RK616)
 {
 		.type	       = "rk616",
 		.addr	       = 0x50,
 		.flags	       = 0,
 		.platform_data = &rk616_pdata,
 },
-#endif
+#endif*/
 };
 #endif
 
@@ -2156,6 +2156,14 @@ static struct i2c_board_info __initdata i2c3_info[] = {
 
 #ifdef CONFIG_I2C4_RK30
 static struct i2c_board_info __initdata i2c4_info[] = {
+#if defined(CONFIG_MFD_RK616)
+{
+		.type	       = "rk616",
+		.addr	       = 0x50,
+		.flags	       = 0,
+		.platform_data = &rk616_pdata,
+},
+#endif
 #ifdef CONFIG_MFD_RK610
 		{
 			.type			= "rk610_ctl",
