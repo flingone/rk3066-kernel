@@ -1718,9 +1718,9 @@ static  struct pmu_info  act8846_ldo_info[] = {
 		.max_uv         = 3300000,
 	},
 	{
-		.name          = "act_ldo6",   //vcc_jetta
-		.min_uv          = 1800000,
-		.max_uv         = 1800000,
+		.name          = "act_ldo6",   //vccio_wl
+		.min_uv          = 3300000,
+		.max_uv         = 3300000,
 	},
 	{
 		.name          = "act_ldo7",   //vcc18
@@ -2130,14 +2130,14 @@ static struct i2c_board_info __initdata i2c2_info[] = {
 //#endif
 //$_rbox_$_modify_$ zhengyang modified end
 
-#if defined(CONFIG_MFD_RK616)
+/*#if defined(CONFIG_MFD_RK616)
 {
 		.type	       = "rk616",
 		.addr	       = 0x50,
 		.flags	       = 0,
 		.platform_data = &rk616_pdata,
 },
-#endif
+#endif*/
 };
 #endif
 
@@ -2156,6 +2156,14 @@ static struct i2c_board_info __initdata i2c3_info[] = {
 
 #ifdef CONFIG_I2C4_RK30
 static struct i2c_board_info __initdata i2c4_info[] = {
+#if defined(CONFIG_MFD_RK616)
+{
+		.type	       = "rk616",
+		.addr	       = 0x50,
+		.flags	       = 0,
+		.platform_data = &rk616_pdata,
+},
+#endif
 #ifdef CONFIG_MFD_RK610
 		{
 			.type			= "rk610_ctl",
