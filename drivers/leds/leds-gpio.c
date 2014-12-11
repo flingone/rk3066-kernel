@@ -105,11 +105,11 @@ static int __devinit create_gpio_led(const struct gpio_led *template,
 		return 0;
 	}
 
-	/*ret = gpio_request(template->gpio, template->name);
+	ret = gpio_request(template->gpio, template->name);
 	if (ret < 0)
 	{
 		return ret;
-	}*/
+	}
 
 	led_dat->cdev.name = template->name;
 	led_dat->cdev.default_trigger = template->default_trigger;
