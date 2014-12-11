@@ -608,6 +608,30 @@ static struct rk610_codec_platform_data rk610_codec_pdata = {
 };
 #endif
 
+#ifdef CONFIG_RK_HDMI
+#define RK_HDMI_RST_PIN 			RK30_PIN3_PB2
+static int rk_hdmi_power_init(void)
+{
+	int ret;
+
+	if(RK_HDMI_RST_PIN != INVALID_GPIO)
+	{
+		if (gpio_request(RK_HDMI_RST_PIN, NULL)) {
+			printk("func %s, line %d: request gpio fail\n", __FUNCTION__, __LINE__);
+			return -1;
+		}
+		gpio_direction_output(RK_HDMI_RST_PIN, GPIO_LOW);
+		gpio_set_value(RK_HDMI_RST_PIN, GPIO_LOW);
+		msleep(100);
+		gpio_set_value(RK_HDMI_RST_PIN, GPIO_HIGH);
+		msleep(50);
+	}
+	return 0;
+}
+static struct rk_hdmi_platform_data rk_hdmi_pdata = {
+	//.io_init = rk_hdmi_power_init,
+};
+#endif
 #ifdef CONFIG_ION
 #define ION_RESERVE_SIZE             (80 * SZ_1M)
 #define ION_RESERVE_SIZE_120M        (120 * SZ_1M)
@@ -1718,9 +1742,9 @@ static  struct pmu_info  act8846_ldo_info[] = {
 		.max_uv         = 3300000,
 	},
 	{
-		.name          = "act_ldo6",   //vccio_wl
-		.min_uv          = 3300000,
-		.max_uv         = 3300000,
+		.name          = "act_ldo6",   //vcc_jetta
+		.min_uv          = 1800000,
+		.max_uv         = 1800000,
 	},
 	{
 		.name          = "act_ldo7",   //vcc18
@@ -2130,14 +2154,14 @@ static struct i2c_board_info __initdata i2c2_info[] = {
 //#endif
 //$_rbox_$_modify_$ zhengyang modified end
 
-/*#if defined(CONFIG_MFD_RK616)
+#if defined(CONFIG_MFD_RK616)
 {
 		.type	       = "rk616",
 		.addr	       = 0x50,
 		.flags	       = 0,
 		.platform_data = &rk616_pdata,
 },
-#endif*/
+#endif
 };
 #endif
 
@@ -2156,14 +2180,6 @@ static struct i2c_board_info __initdata i2c3_info[] = {
 
 #ifdef CONFIG_I2C4_RK30
 static struct i2c_board_info __initdata i2c4_info[] = {
-#if defined(CONFIG_MFD_RK616)
-{
-		.type	       = "rk616",
-		.addr	       = 0x50,
-		.flags	       = 0,
-		.platform_data = &rk616_pdata,
-},
-#endif
 #ifdef CONFIG_MFD_RK610
 		{
 			.type			= "rk610_ctl",
@@ -2434,10 +2450,11 @@ static struct cpufreq_frequency_table dvfs_gpu_table[] = {
 };
 
 static struct cpufreq_frequency_table dvfs_ddr_table[] = {
-	{.frequency = 200 * 1000 + DDR_FREQ_SUSPEND,    .index = 950 * 1000},
+//	{.frequency = 200 * 1000 + DDR_FREQ_SUSPEND,    .index = 950 * 1000},
 //	{.frequency = 300 * 1000 + DDR_FREQ_VIDEO,      .index = 1000 * 1000},
 //	{.frequency = 400 * 1000 + DDR_FREQ_NORMAL,     .index = 1100 * 1000},
-	{.frequency = 600 * 1000 + DDR_FREQ_NORMAL,     .index = 1200 * 1000},
+	{.frequency = 528 * 1000 + DDR_FREQ_NORMAL,     .index = 1250 * 1000},
+	//{.frequency = 600 * 1000 + DDR_FREQ_NORMAL,     .index = 1200 * 1000},
 	{.frequency = CPUFREQ_TABLE_END},
 };
 static struct cpufreq_frequency_table dvfs_ddr_table_t[] = {

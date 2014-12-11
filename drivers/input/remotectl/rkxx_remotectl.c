@@ -128,21 +128,22 @@ static struct rkxx_remote_key_table remote_key_table_meiyu_202[] = {
 };
 
 static struct rkxx_remote_key_table remote_key_table_df[] = {
-    {0xf8, KEY_REPLY},
-    {0xc0, KEY_BACK}, 
-    {0xf0, KEY_UP},
-    {0xd8, KEY_DOWN},
-    {0xd0, KEY_LEFT},
-    {0xe8,KEY_RIGHT},  ////////
-    {0x90, KEY_VOLUMEDOWN},
-    {0x60, KEY_VOLUMEUP},
-    {0x80, KEY_HOME},     //home
-    {0xe0, 183},          //rorate left
-    {0x10, 184},          //rorate right
-    {0x20, 185},          //zoom out
-    {0xa0, 186},          //zoom in
+    {0x48, KEY_REPLY},
+    {0x68, KEY_BACK}, 
+    {0x08, KEY_UP},
+    {0xa8, KEY_DOWN},
+    {0xc8, KEY_LEFT},
+    {0x88,KEY_RIGHT},  ////////
+    {0xb2, KEY_VOLUMEDOWN},
+    {0x52, KEY_VOLUMEUP},
+    {0x90, KEY_HOME},     //home
+    {0x04, KEY_RED},          //rorate left
+    {0x44, KEY_YELLOW},          //rorate right
+    {0xc4, KEY_BLUE},          //zoom out
+    {0x84, KEY_GREEN},          //zoom in
+	{0x10,KEY_MENU},
     {0x70, KEY_MUTE},       //mute
-    {0x50, KEY_POWER},     //power off
+    {0x00, KEY_POWER},     //power off
     {0x40, KEY_SEARCH},     //search
 };
 
@@ -217,7 +218,7 @@ static struct rkxx_remotectl_button remotectl_button[] =
        .key_table = &remote_key_table_meiyu_202[0],
     },
     {  
-       .usercode = 0xdf, 
+       .usercode = 0x803f,//0x1fc,//0xdf, 
        .nbuttons =  16, 
        .key_table = &remote_key_table_df[0],
     },
@@ -526,6 +527,10 @@ static int __devinit remotectl_probe(struct platform_device *pdev)
     int i, j;
     int irq;
     int error = 0;
+#ifdef CONFIG_ARCH_RK3188     
+    int cpu_id;
+    struct cpumask cpumask;
+#endif
 
     printk("++++++++remotectl_probe\n");
 
@@ -586,18 +591,7 @@ static int __devinit remotectl_probe(struct platform_device *pdev)
 		gpio_free(pdata->gpio);
 		goto fail1;
 	}
-	
-	error = request_irq(irq, remotectl_isr,	IRQF_TRIGGER_FALLING , "remotectl", ddata);
-	
-	if (error) {
-		pr_err("gpio-remotectl: Unable to claim irq %d; error %d\n", irq, error);
-		gpio_free(pdata->gpio);
-		goto fail1;
-	}
-    setup_timer(&ddata->timer,remotectl_timer, (unsigned long)ddata);
-    
-    tasklet_init(&ddata->remote_tasklet, remotectl_do_something, (unsigned long)ddata);
-    
+
     for (j=0;j<sizeof(remotectl_button)/sizeof(struct rkxx_remotectl_button);j++){ 
     	printk("remotectl probe j=0x%x\n",j);
 		for (i = 0; i < remotectl_button[j].nbuttons; i++) {
@@ -612,10 +606,24 @@ static int __devinit remotectl_probe(struct platform_device *pdev)
 		goto fail2;
 	}
     
-    input_set_capability(input, EV_KEY, KEY_WAKEUP);
+  input_set_capability(input, EV_KEY, KEY_WAKEUP);
 
 	device_init_wakeup(&pdev->dev, 1);
-
+	tasklet_init(&ddata->remote_tasklet, remotectl_do_something, (unsigned long)ddata);
+	setup_timer(&ddata->timer,remotectl_timer, (unsigned long)ddata);
+	error = request_irq(irq, remotectl_isr,	IRQF_TRIGGER_FALLING , "remotectl", ddata);
+		
+	if (error) {
+		pr_err("gpio-remotectl: Unable to claim irq %d; error %d\n", irq, error);
+		gpio_free(pdata->gpio);
+		goto fail1;
+	}
+#ifdef CONFIG_ARCH_RK3188  
+	cpu_id = 1;
+	cpumask_clear(&cpumask);
+	cpumask_set_cpu(cpu_id, &cpumask); 
+	irq_set_affinity(86, &cpumask); 
+#endif
 	return 0;
 
 fail2:
@@ -659,18 +667,24 @@ static int remotectl_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct RKxx_remotectl_platform_data *pdata = pdev->dev.platform_data;
-    struct rkxx_remotectl_drvdata *ddata = platform_get_drvdata(pdev);
-    
+  struct rkxx_remotectl_drvdata *ddata = platform_get_drvdata(pdev);
+  int irq;
+#ifdef CONFIG_ARCH_RK3188     
+  int cpu_id=0;
+  struct cpumask cpumask;
+#endif
     //ddata->remotectl_suspend_data.suspend_flag = 1;
     ddata->remotectl_suspend_data.cnt = 0;
 
 	if (device_may_wakeup(&pdev->dev)) {
 		if (pdata->wakeup) {
-			int irq = gpio_to_irq(pdata->gpio);
+			irq = gpio_to_irq(pdata->gpio);
 			enable_irq_wake(irq);
 		}
 	}
-    
+  cpumask_clear(&cpumask);
+	cpumask_set_cpu(cpu_id, &cpumask);
+	irq_set_affinity(86, &cpumask); 
 	return 0;
 }
 
@@ -678,14 +692,20 @@ static int remotectl_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct RKxx_remotectl_platform_data *pdata = pdev->dev.platform_data;
-
+	int irq;
+#ifdef CONFIG_ARCH_RK3188     
+  int cpu_id=1;
+  struct cpumask cpumask;
+#endif
     if (device_may_wakeup(&pdev->dev)) {
         if (pdata->wakeup) {
-            int irq = gpio_to_irq(pdata->gpio);
+            irq = gpio_to_irq(pdata->gpio);
             disable_irq_wake(irq);
         }
     }
-
+	cpumask_clear(&cpumask);
+	cpumask_set_cpu(cpu_id, &cpumask); 
+	irq_set_affinity(86, &cpumask); 
 	return 0;
 }
 
