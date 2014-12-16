@@ -1533,7 +1533,7 @@ static struct rkdisplay_platform_data tv_data = {
 #ifdef CONFIG_RK30_PWM_REGULATOR_ARM_LOGIC 	
 	.io_reset_pin 	= RK30_PIN3_PD5,
 #else
-	.io_reset_pin 	= RK30_PIN3_PD4,
+	.io_reset_pin 	= RK30_PIN3_PD7,
 #endif	
 	.io_switch_pin	= RK30_PIN2_PD7,
 };
