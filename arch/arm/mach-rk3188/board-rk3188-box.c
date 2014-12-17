@@ -1546,7 +1546,7 @@ static struct rkdisplay_platform_data tv_data = {
 #else
 	.io_reset_pin 	= RK30_PIN3_PD7,
 #endif	
-	.io_switch_pin	= RK30_PIN2_PD7,
+	.io_switch_pin	= INVALID_GPIO,
 };
 #endif
 
