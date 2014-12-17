@@ -37,12 +37,12 @@ static struct rkcamera_platform_data new_camera[] = {
     
     new_camera_device_ex(RK29_CAM_SENSOR_OV5640,
                         back,
+                        360,
                         INVALID_VALUE,
                         INVALID_VALUE,
                         INVALID_VALUE,
                         INVALID_VALUE,
-                        INVALID_VALUE,
-                        RK30_PIN3_PB5,
+                        RK30_PIN3_PB4,
                         CONS(RK29_CAM_SENSOR_OV5640,_PWRDN_ACTIVE),
                         1,
                         CONS(RK29_CAM_SENSOR_OV5640,_FULL_RESOLUTION),
@@ -52,13 +52,6 @@ static struct rkcamera_platform_data new_camera[] = {
                         CONS(RK29_CAM_SENSOR_OV5640,_I2C_ADDR),
                         0,
                         24),                        
-    new_camera_device(RK29_CAM_SENSOR_OV2659,
-                        front,
-                        RK30_PIN3_PB4,
-                        0,
-                        0,
-                        3,
-                        0), 
     new_camera_device_end
 };
 /*---------------- Camera Sensor Macro Define Begin  ------------------------*/
@@ -69,8 +62,8 @@ static struct rkcamera_platform_data new_camera[] = {
 #define CONFIG_SENSOR_ORIENTATION_0 	  90
 #define CONFIG_SENSOR_POWER_PIN_0		  INVALID_GPIO
 #define CONFIG_SENSOR_RESET_PIN_0		  INVALID_GPIO
-#define CONFIG_SENSOR_POWERDN_PIN_0 	  RK30_PIN3_PB5
-#define CONFIG_SENSOR_FALSH_PIN_0		  RK30_PIN0_PD5 //INVALID_GPIO
+#define CONFIG_SENSOR_POWERDN_PIN_0 	  RK30_PIN3_PB4
+#define CONFIG_SENSOR_FALSH_PIN_0		  INVALID_GPIO
 #define CONFIG_SENSOR_POWERACTIVE_LEVEL_0 RK29_CAM_POWERACTIVE_L
 #define CONFIG_SENSOR_RESETACTIVE_LEVEL_0 RK29_CAM_RESETACTIVE_L
 #define CONFIG_SENSOR_POWERDNACTIVE_LEVEL_0 RK29_CAM_POWERDNACTIVE_H

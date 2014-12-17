@@ -35,8 +35,6 @@ static void rk30_arch_reset(char mode, const char *cmd)
 	if (cmd) {
 		if (!strcmp(cmd, "loader") || !strcmp(cmd, "bootloader")) 
 			boot_flag = SYS_LOADER_REBOOT_FLAG + BOOT_LOADER;
-		else if (!strcmp(cmd, "fastboot"))
-			boot_flag = SYS_LOADER_REBOOT_FLAG + BOOT_FASTBOOT;
 		else if(!strcmp(cmd, "recovery"))
 			boot_flag = SYS_LOADER_REBOOT_FLAG + BOOT_RECOVER;
 		else if (!strcmp(cmd, "charge"))

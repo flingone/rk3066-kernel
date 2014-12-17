@@ -495,9 +495,9 @@ static int rk30_cursor_set_image(struct rk_lcdc_device_driver *dev_drv,char *img
 	unsigned int   op,shift,offset;
 
 //	memset(cursor_buf, 0x00, CURSOR_BUF_SIZE);
-	memcpy(cursor_buf, imgdata, CURSOR_BUF_SIZE);
-	flush_cache_all();
-	msleep(10);
+//	memcpy(cursor_buf, imgdata, CURSOR_BUF_SIZE);
+//	flush_cache_all();
+//	msleep(10);
 	spin_lock(&lcdc_dev->reg_lock);
 	if(likely(lcdc_dev->clk_on)) {
 	    lcdc_writel(lcdc_dev, HWC_MST, __pa(cursor_buf));
@@ -532,7 +532,7 @@ static int rk30_cursor_set_pos(struct rk_lcdc_device_driver *dev_drv, int x, int
 //	lcdc_writel(lcdc_dev, WIN0_ACT_INFO,v_ACT_WIDTH(xact) | v_ACT_HEIGHT(yact));
 	spin_lock(&lcdc_dev->reg_lock);
 		if(likely(lcdc_dev->clk_on)) {
-		#if 1
+		#if 0
 		xact = (lcdc_readl(lcdc_dev, WIN1_ACT_INFO) & 0xFFFF) + 1;
 		yact = ((lcdc_readl(lcdc_dev, WIN1_ACT_INFO) & 0xFFFF0000 ) >> 16) + 1;
 	//	printk("xact is %d yact is %d\n", xact, yact);
@@ -1855,7 +1855,7 @@ static void rk30_lcdc_shutdown(struct platform_device *pdev)
 	if(lcdc_dev->driver.cur_screen->sscreen_set) //turn off  lvds if necessary
 		lcdc_dev->driver.cur_screen->sscreen_set(lcdc_dev->driver.cur_screen , 0);
 	rk30_lcdc_deinit(lcdc_dev);
-	//rk_fb_unregister(&(lcdc_dev->driver));
+	rk_fb_unregister(&(lcdc_dev->driver));
 	
 	/*iounmap(lcdc_dev->reg_vir_base);
 	release_mem_region(lcdc_dev->reg_phy_base,lcdc_dev->len);

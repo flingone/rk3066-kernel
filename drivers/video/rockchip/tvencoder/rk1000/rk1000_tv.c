@@ -348,8 +348,7 @@ static void __exit rk1000_tv_exit(void)
     i2c_del_driver(&rk1000_tv_control_driver);
 }
 
-//module_init(rk1000_tv_init);
-late_initcall(rk1000_tv_init);
+module_init(rk1000_tv_init);
 module_exit(rk1000_tv_exit);
 
 /* Module information */

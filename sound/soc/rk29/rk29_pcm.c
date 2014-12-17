@@ -64,7 +64,7 @@ static const struct snd_pcm_hardware rockchip_pcm_hardware = {
 #ifdef CONFIG_RK_SRAM_DMA
 	.period_bytes_max	= 8*1024,
 #else
-	.period_bytes_max	= 32*1024,//2048*4,///PAGE_SIZE*2,
+	.period_bytes_max	= 1024*8*2,//2048*4,///PAGE_SIZE*2, modify for eight channel by sugar
 #endif
 	.periods_min		= 3,///2,
 	.periods_max		= 128,

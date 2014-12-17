@@ -81,7 +81,7 @@ struct rkxx_remotectl_drvdata {
 
 
 
-//ÌØÊâ¹¦ÄÜ¼üÖµ¶¨Òå
+//???â¹¦?Ü¼?Öµ????
     //193      //photo
     //194      //video
     //195      //music
