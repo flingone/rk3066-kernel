@@ -394,8 +394,14 @@ static int rk30_cursor_set_pos(struct rk_lcdc_device_driver *dev_drv, int x, int
 		xpos = (x * dev_drv->cur_screen->x_res * (dev_drv->overscan.left + dev_drv->overscan.right)/200)/xact;
 		ypos = (y * dev_drv->cur_screen->y_res * (dev_drv->overscan.top + dev_drv->overscan.bottom)/200)/yact;
 		#else
+#if defined(CONFIG_BOX_FB_1080P)
+		xpos = (x * dev_drv->cur_screen->x_res * (dev_drv->overscan.left + dev_drv->overscan.right)/200)/1920;
+		ypos = (y * dev_drv->cur_screen->y_res * (dev_drv->overscan.top + dev_drv->overscan.bottom)/200)/1080;
+#endif
+#if defined(CONFIG_BOX_FB_720P)
 		xpos = (x * dev_drv->cur_screen->x_res * (dev_drv->overscan.left + dev_drv->overscan.right)/200)/1280;
 		ypos = (y * dev_drv->cur_screen->y_res * (dev_drv->overscan.top + dev_drv->overscan.bottom)/200)/720;
+#endif
 		#endif
 		xpos += dev_drv->cur_screen->x_res * (100 - dev_drv->overscan.left)/200 + dev_drv->cur_screen->left_margin + dev_drv->cur_screen->hsync_len;
 		ypos += dev_drv->cur_screen->y_res * (100 - dev_drv->overscan.top)/200 + dev_drv->cur_screen->upper_margin + dev_drv->cur_screen->vsync_len;
