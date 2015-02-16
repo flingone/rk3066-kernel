@@ -109,6 +109,8 @@ dhd_conf_set_fw_name_by_chip(dhd_pub_t *dhd, char *dst, char *src)
     static uint chip, chiprev, first=1;
     int i;
 
+    printk("%s: src[%s]dst[%s]\n", __FUNCTION__, src, dst);
+
     //if(src[0] == '\0')
     // rule out bcm4330 (gwl)
     if (strstr(dst, "bcm4330"))
