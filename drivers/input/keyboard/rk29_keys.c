@@ -392,6 +392,14 @@ static int __devinit keys_probe(struct platform_device *pdev)
 
 		input_set_capability(input, EV_KEY, button->code);
 	};
+        input_set_capability(input, EV_KEY, KEY_DOWN);
+        input_set_capability(input, EV_KEY, KEY_UP);
+        input_set_capability(input, EV_KEY, KEY_LEFT);
+        input_set_capability(input, EV_KEY, KEY_RIGHT);
+        input_set_capability(input, EV_KEY, KEY_MUTE);
+        input_set_capability(input, EV_KEY, KEY_ENTER);
+        input_set_capability(input, EV_KEY, KEY_TAB);
+        input_set_capability(input, EV_KEY, KEY_VOLUMEDOWN);
 
 	if (pdata->chn >= 0) {
 		setup_timer(&ddata->timer, keys_adc_timer, (unsigned long)ddata);
