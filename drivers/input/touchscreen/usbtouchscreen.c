@@ -1149,12 +1149,20 @@ static void usbtouch_process_pkt(struct usbtouch_usb *usbtouch,
                                  unsigned char *pkt, int len)
 {
 	struct usbtouch_device_info *type = usbtouch->type;
+	int x;
+	int y;
 
 	if (!type->read_data(usbtouch, pkt))
 			return;
 
 	input_report_key(usbtouch->input, BTN_TOUCH, usbtouch->touch);
 
+	x = usbtouch->x;
+	y = usbtouch->y;
+
+	/* swap x/y, and invert y */
+	usbtouch->x = 0x7ff - y;
+	usbtouch->y = x;
 	if (swap_xy) {
 		input_report_abs(usbtouch->input, ABS_X, usbtouch->y);
 		input_report_abs(usbtouch->input, ABS_Y, usbtouch->x);
