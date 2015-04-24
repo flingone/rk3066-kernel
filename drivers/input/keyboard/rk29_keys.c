@@ -400,6 +400,8 @@ static int __devinit keys_probe(struct platform_device *pdev)
         input_set_capability(input, EV_KEY, KEY_ENTER);
         input_set_capability(input, EV_KEY, KEY_TAB);
         input_set_capability(input, EV_KEY, KEY_VOLUMEDOWN);
+        input_set_capability(input, EV_KEY, KEY_BACKSPACE);
+        input_set_capability(input, EV_KEY, KEY_ESC);
 
 	if (pdata->chn >= 0) {
 		setup_timer(&ddata->timer, keys_adc_timer, (unsigned long)ddata);
