@@ -955,10 +955,10 @@ static void usbtouch_process_multi(struct usbtouch_usb *usbtouch,
 static struct usbtouch_device_info usbtouch_dev_info[] = {
 #ifdef CONFIG_TOUCHSCREEN_USB_EGALAX
 	[DEVTYPE_EGALAX] = {
-		.min_xc		= 0x0,
-		.max_xc		= 0x07ff,
-		.min_yc		= 0x0,
-		.max_yc		= 0x07ff,
+		.min_xc		= 0x54,
+		.max_xc		= 0x07a7 * 720 / 800,
+		.min_yc		= 0xca,
+		.max_yc		= 0x074f,
 		.rept_size	= 16,
 		.process_pkt	= usbtouch_process_multi,
 		.get_pkt_len	= egalax_get_pkt_len,
@@ -1588,8 +1588,53 @@ static struct usb_driver usbtouch_driver = {
 	.supports_autosuspend = 1,
 };
 
+static ssize_t virtual_keys_show(struct kobject *kobj,
+                        struct kobj_attribute *attr, char *buf)
+{
+         printk("virtual_keys_show\n");
+        return sprintf(buf,
+                __stringify(EV_KEY) ":" __stringify(KEY_BACK)           ":760:80:40:80"
+                ":" __stringify(EV_KEY) ":" __stringify(KEY_MENU)       ":760:240:40:80"
+                ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":760:400:40:80"
+                "\n");
+}
+
+static struct kobj_attribute virtual_keys_attr = {
+        .attr = {
+                .name = "virtualkeys.eGalax Inc. USB TouchController",
+                .mode = S_IRUGO,
+        },
+        .show = &virtual_keys_show,
+};
+
+static struct attribute *properties_attrs[] = {
+        &virtual_keys_attr.attr,
+        NULL
+};
+
+static struct attribute_group properties_attr_group = {
+        .attrs = properties_attrs,
+};
+
+static int virtual_keys_init(void)
+{
+        int ret;
+        struct kobject *properties_kobj;
+        printk("virtual_keys_init \n");
+        properties_kobj = kobject_create_and_add("board_properties", NULL);
+        if (properties_kobj)
+                ret = sysfs_create_group(properties_kobj,
+                                &properties_attr_group);
+        if (!properties_kobj || ret)
+        {
+                printk("failed to create board_properties for virtual key\n");
+        }
+        return ret;
+}
+
 static int __init usbtouch_init(void)
 {
+	virtual_keys_init();
 	return usb_register(&usbtouch_driver);
 }
 
